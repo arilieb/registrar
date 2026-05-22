@@ -20,7 +20,7 @@ from ..core.sentinel.handler import RegistrarEventHandler
 from ..core.sentinel.config import SentinelConfig
 
 
-async def setup_local(name, alias, base, bran, port, export_dir, http_port=8080):
+async def setup_local(name, alias, base, bran, host, port, export_dir, http_port=8080):
     """
     Setup local registrar services.
 
@@ -29,6 +29,7 @@ async def setup_local(name, alias, base, bran, port, export_dir, http_port=8080)
         alias: Human readable alias for the identifier
         base: Optional prefix to file location of KERI keystore
         bran: 22 character encryption passcode for keystore
+        host: Host address for services
         port: Port for IPEXSocketListener
         export_dir: Directory for exporting CESR files
         http_port: Port for API service (default: 8080)
@@ -49,13 +50,13 @@ async def setup_local(name, alias, base, bran, port, export_dir, http_port=8080)
 
     # Add IPEXSocketListener if hby and db are available
     if hby and db:
-        ipex_listener = IPEXSocketListener(hby=hby, db=db, host="127.0.0.1", port=port)
+        ipex_listener = IPEXSocketListener(hby=hby, db=db, host=host, port=port)
         services.append(ipex_listener)
 
     # Add API service if hby is available
     if hby:
         api_service = RegistrarAPIService(
-            hby=hby, rgy=rgy, host="127.0.0.1", port=http_port
+            hby=hby, rgy=rgy, host=host, port=http_port
         )
         services.append(api_service)
 

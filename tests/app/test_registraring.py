@@ -40,6 +40,7 @@ class TestSetupLocal:
             "alias": "test-alias",
             "base": "/tmp/keri",
             "bran": "0123456789abcdefghijkl",
+            "host": "127.0.0.1",
             "port": 5620,
             "export_dir": tmp_path / "exports",
             "http_port": 8080,

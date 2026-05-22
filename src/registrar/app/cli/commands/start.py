@@ -42,6 +42,13 @@ parser.add_argument(
     default="",
 )
 parser.add_argument(
+    "--host",
+    "-H",
+    action="store",
+    default="127.0.0.1",
+    help="Host the Sentinel server listens on. Default is 127.0.0.1.",
+)
+parser.add_argument(
     "--port",
     "-P",
     action="store",
@@ -129,6 +136,7 @@ async def async_run_sentinel(args):
         alias=args.alias,
         base=args.base,
         bran=args.bran,
+        host=args.host,
         port=int(args.port),
         export_dir=args.sentinel_export_dir,
         http_port=int(args.http_port),
