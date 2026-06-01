@@ -11,8 +11,8 @@ from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from keri import help, kering
 from keri.app import signing
-from keri.app.habbing import Habery
-from keri.core import serdering, parsing, coring
+from keri.app.habbing import Habery, Hab
+from keri.core import serdering, parsing, coring, routing
 from keri.peer import exchanging
 from keri.vdr import verifying
 from keri.vdr.credentialing import Regery
@@ -20,6 +20,8 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
+
+from registrar.core.authing import Authenticater, SignatureValidationComponent
 
 logger = help.ogler.getLogger()
 
@@ -37,7 +39,10 @@ class RegistrarAPIService:
     def __init__(
         self,
         hby: Habery,
+        hab: Hab,
         rgy: Regery,
+        issuer: str,
+        schema: str,
         host: str = "127.0.0.1",
         port: int = 8080,
     ):
@@ -46,17 +51,32 @@ class RegistrarAPIService:
 
         Args:
             hby: Habery instance for managing healthKERI accounts
+            hab: Hab instance for signing responses
+            rgy: Regery instance for managing credentials
+            issuer: Issuer DID for credential issuance
+            schema: Schema for credential issuance
             host: Host address to bind to (default: 127.0.0.1)
             port: Port number to listen on (default: 8080)
         """
         self.hby = hby
+        self.hab = hab
         self.rgy = rgy
+        self.issuer = issuer
+
+        self.rtr = routing.Router()
+        self.rvy = routing.Revery(db=self.hby.db, rtr=self.rtr)
+        self.hby.kvy.registerReplyRoutes(router=self.rtr)
+
         self.verifier = verifying.Verifier(hby=self.hby, reger=self.rgy.reger)
         self.exc = exchanging.Exchanger(hby=self.hby, handlers=[])
-        self.psr = parsing.Parser(
-            kvy=self.hby.kvy, tvy=self.rgy.tvy, vry=self.verifier, exc=self.exc
+        self.credential_psr = parsing.Parser(
+            kvy=self.hby.kvy, tvy=self.rgy.tvy, vry=self.verifier
         )
-        self.exc.addHandler(IPEXGrantHandler(hby=self.hby, psr=self.psr))
+        self.external_psr = parsing.Parser(kvy=self.hby.kvy, rvy=self.rvy, exc=self.exc)
+
+        self.exc.addHandler(
+            IPEXGrantHandler(hby=self.hby, psr=self.credential_psr, issuer=issuer)
+        )
 
         self.host = host
         self.port = port
@@ -75,6 +95,13 @@ class RegistrarAPIService:
             ],
         )
 
+        authn = Authenticater(hby=hby, hab=hab, reger=self.rgy.reger, schema=schema)
+        self.app.add_middleware(
+            SignatureValidationComponent,  # type: ignore
+            authn=authn,
+            allowed=["/"],  # Paths that don't require signatures
+        )
+
     async def parse(self, request: Request):
         """
         Handle GET /registry endpoint.
@@ -83,10 +110,11 @@ class RegistrarAPIService:
             Response with registry datd
         """
         data = await request.body()
-        self.psr.parse(data)
+        self.external_psr.parse(data)
 
-        self.psr.kvy.processEscrows()
+        self.rvy.processEscrowReply()
         self.exc.processEscrow()
+        self.credential_psr.kvy.processEscrows()
         self.rgy.tvy.processEscrows()
         self.verifier.processEscrows()
 
@@ -174,11 +202,7 @@ class RegistrarAPIService:
 
             return Response(content=out, media_type="application/cesr", status_code=200)
         except kering.MissingEntryError as e:
-            import traceback
-
             logger.error(f"Credential not found for said {said}: {e}")
-            print(f"Stack trace: {traceback.format_exc()}")
-
             return JSONResponse(
                 {"message": f"Credential not found for said {said}"}, status_code=404
             )
@@ -283,12 +307,20 @@ class RegistrarAPIService:
 
 
 class IPEXGrantHandler:
-
     resource = "/ipex/grant"
 
-    def __init__(self, hby, psr):
+    def __init__(self, hby, psr, issuer):
+        """
+        Initialize the IPEXGrantHandler with the given parameters.
+
+        Parameters:
+            hby (Habery): Habitat instance for signing responses
+            psr (Psr): Proof Service Registry instance for managing credentials
+            issuer (str): Issuer DID for credential issuance
+        """
         self.hby = hby
         self.psr = psr
+        self.issuer = issuer
 
     def handle(self, serder, attachments=None):
         """Do route specific processsing of IPEX protocol exn messages
@@ -299,13 +331,18 @@ class IPEXGrantHandler:
 
         """
         grant, pathed = exchanging.cloneMessage(self.hby, serder.said)
-        route = grant.ked["r"]
-        if route != "/ipex/grant":
-            raise ValueError(
-                f"exn said={grant.said} is not a grant message, route={route}"
-            )
-
         embeds = serder.ked["e"]
+
+        creder = serdering.SerderACDC(sad=embeds["acdc"])
+        if creder.issuer != self.issuer:
+            logger.info(
+                f"ACDC issuer {creder.issuer} does not match expected issuer {self.issuer} on {serder.said}"
+            )
+            return
+
+        logger.info(
+            f"Processing IPEX grant for {serder.said} with valid credential issued from {creder.issuer}"
+        )
 
         # Lets get the latest KEL and Registry if needed
         for label in ("anc", "iss", "acdc"):

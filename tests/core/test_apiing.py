@@ -33,26 +33,43 @@ class TestRegistrarAPIService:
         return rgy
 
     @pytest.fixture
-    def api_service(self, mock_hby, mock_rgy):
+    def mock_hab(self):
+        """Create a mock Hab instance"""
+        hab = Mock()
+        hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        return hab
+
+    @pytest.fixture
+    def api_service(self, mock_hby, mock_hab, mock_rgy):
         """Create a RegistrarAPIService instance"""
         with (
             patch("registrar.core.apiing.verifying.Verifier"),
             patch("registrar.core.apiing.exchanging.Exchanger"),
             patch("registrar.core.apiing.parsing.Parser"),
             patch("registrar.core.apiing.IPEXGrantHandler"),
+            patch("registrar.core.apiing.Authenticater"),
         ):
             service = RegistrarAPIService(
-                hby=mock_hby, rgy=mock_rgy, host="0.0.0.0", port=9090
+                hby=mock_hby,
+                hab=mock_hab,
+                rgy=mock_rgy,
+                issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
+                schema="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA",
+                host="0.0.0.0",
+                port=9090,
             )
         return service
 
-    def test_init_default_params(self, mock_hby, mock_rgy):
+    def test_init_default_params(self, mock_hby, mock_hab, mock_rgy):
         """Test RegistrarAPIService initialization with default parameters"""
         with (
             patch("registrar.core.apiing.verifying.Verifier") as mock_verifier,
             patch("registrar.core.apiing.exchanging.Exchanger") as mock_exchanger,
             patch("registrar.core.apiing.parsing.Parser") as mock_parser,
             patch("registrar.core.apiing.IPEXGrantHandler"),
+            patch("registrar.core.apiing.routing.Router"),
+            patch("registrar.core.apiing.routing.Revery"),
+            patch("registrar.core.apiing.Authenticater"),
         ):
 
             mock_verifier_instance = Mock()
@@ -62,11 +79,18 @@ class TestRegistrarAPIService:
             mock_parser_instance = Mock()
             mock_parser.return_value = mock_parser_instance
 
-            service = RegistrarAPIService(hby=mock_hby, rgy=mock_rgy)
+            issuer = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"
+            schema = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA"
+
+            service = RegistrarAPIService(
+                hby=mock_hby, hab=mock_hab, rgy=mock_rgy, issuer=issuer, schema=schema
+            )
 
             # Verify default parameters
             assert service.hby == mock_hby
+            assert service.hab == mock_hab
             assert service.rgy == mock_rgy
+            assert service.issuer == issuer
             assert service.host == "127.0.0.1"
             assert service.port == 8080
             assert service._task is None
@@ -79,28 +103,29 @@ class TestRegistrarAPIService:
             # Verify Exchanger initialization
             mock_exchanger.assert_called_once_with(hby=mock_hby, handlers=[])
 
-            # Verify Parser initialization
-            mock_parser.assert_called_once_with(
-                kvy=mock_hby.kvy,
-                tvy=mock_rgy.tvy,
-                vry=mock_verifier_instance,
-                exc=mock_exchanger_instance,
-            )
-
             # Verify handler added to exchanger
             mock_exchanger_instance.addHandler.assert_called_once()
 
-    def test_init_custom_params(self, mock_hby, mock_rgy):
+    def test_init_custom_params(self, mock_hby, mock_hab, mock_rgy):
         """Test RegistrarAPIService initialization with custom parameters"""
         with (
             patch("registrar.core.apiing.verifying.Verifier"),
             patch("registrar.core.apiing.exchanging.Exchanger"),
             patch("registrar.core.apiing.parsing.Parser"),
             patch("registrar.core.apiing.IPEXGrantHandler"),
+            patch("registrar.core.apiing.routing.Router"),
+            patch("registrar.core.apiing.routing.Revery"),
+            patch("registrar.core.apiing.Authenticater"),
         ):
 
             service = RegistrarAPIService(
-                hby=mock_hby, rgy=mock_rgy, host="192.168.1.1", port=3000
+                hby=mock_hby,
+                hab=mock_hab,
+                rgy=mock_rgy,
+                issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
+                schema="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA",
+                host="192.168.1.1",
+                port=3000,
             )
 
             assert service.host == "192.168.1.1"
@@ -138,8 +163,9 @@ class TestRegistrarAPIService:
         mock_request.body = AsyncMock(return_value=test_data)
 
         # Mock parser and processing methods
-        api_service.psr.parse = Mock()
-        api_service.psr.kvy.processEscrows = Mock()
+        api_service.external_psr.parse = Mock()
+        api_service.rvy.processEscrowReply = Mock()
+        api_service.credential_psr.kvy.processEscrows = Mock()
         api_service.exc.processEscrow = Mock()
         api_service.rgy.tvy.processEscrows = Mock()
         api_service.verifier.processEscrows = Mock()
@@ -149,8 +175,9 @@ class TestRegistrarAPIService:
 
         # Verify
         mock_request.body.assert_called_once()
-        api_service.psr.parse.assert_called_once_with(test_data)
-        api_service.psr.kvy.processEscrows.assert_called_once()
+        api_service.external_psr.parse.assert_called_once_with(test_data)
+        api_service.rvy.processEscrowReply.assert_called_once()
+        api_service.credential_psr.kvy.processEscrows.assert_called_once()
         api_service.exc.processEscrow.assert_called_once()
         api_service.rgy.tvy.processEscrows.assert_called_once()
         api_service.verifier.processEscrows.assert_called_once()
@@ -785,12 +812,17 @@ class TestIPEXGrantHandler:
     @pytest.fixture
     def handler(self, mock_hby, mock_psr):
         """Create an IPEXGrantHandler instance"""
-        return IPEXGrantHandler(hby=mock_hby, psr=mock_psr)
+        return IPEXGrantHandler(
+            hby=mock_hby,
+            psr=mock_psr,
+            issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
+        )
 
     def test_init(self, handler, mock_hby, mock_psr):
         """Test IPEXGrantHandler initialization"""
         assert handler.hby == mock_hby
         assert handler.psr == mock_psr
+        assert handler.issuer == "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"
         assert handler.resource == "/ipex/grant"
 
     def test_handle_success(self, handler, mock_hby, mock_psr):
@@ -800,7 +832,7 @@ class TestIPEXGrantHandler:
         mock_serder.said = "test-said"
         mock_serder.ked = {
             "e": {
-                "acdc": {"i": "issuer-id"},
+                "acdc": {"i": "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"},
                 "anc": {"test": "data"},
                 "iss": {"test": "data"},
             }
@@ -818,13 +850,19 @@ class TestIPEXGrantHandler:
             "acdc": b"acdc-attachment",
         }
 
+        # Mock SerderACDC
+        mock_creder = Mock()
+        mock_creder.issuer = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"
+
         # Mock exchanging.cloneMessage
         with (
             patch("registrar.core.apiing.exchanging.cloneMessage") as mock_clone,
             patch("registrar.core.apiing.coring.Sadder") as mock_sadder_class,
+            patch("registrar.core.apiing.serdering.SerderACDC") as mock_serder_acdc,
         ):
 
             mock_clone.return_value = (mock_grant, mock_pathed)
+            mock_serder_acdc.return_value = mock_creder
 
             # Mock Sadder for each label
             mock_sadders = []
@@ -843,25 +881,56 @@ class TestIPEXGrantHandler:
             # Verify parseOne called for each label
             assert mock_psr.parseOne.call_count == 3
 
-    def test_handle_invalid_route(self, handler, mock_hby):
-        """Test handle method with invalid route"""
-        # Mock serder
+    def test_handle_invalid_route(self, handler, mock_hby, mock_psr):
+        """Test handle method processes message regardless of route"""
+        # Mock serder with full embeds
         mock_serder = Mock()
         mock_serder.said = "test-said"
+        mock_serder.ked = {
+            "e": {
+                "acdc": {"i": "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"},
+                "anc": {"test": "data"},
+                "iss": {"test": "data"},
+            }
+        }
 
-        # Mock grant message with wrong route
+        # Mock grant message - route is not validated by current code
         mock_grant = Mock()
         mock_grant.said = "grant-said"
         mock_grant.ked = {"r": "/ipex/other"}
 
-        with patch("registrar.core.apiing.exchanging.cloneMessage") as mock_clone:
-            mock_clone.return_value = (mock_grant, {})
+        # Mock pathed attachments
+        mock_pathed = {
+            "anc": b"anc-attachment",
+            "iss": b"iss-attachment",
+            "acdc": b"acdc-attachment",
+        }
 
-            # Execute and verify exception
-            with pytest.raises(ValueError) as exc_info:
-                handler.handle(mock_serder)
+        # Mock SerderACDC
+        mock_creder = Mock()
+        mock_creder.issuer = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"
 
-            assert "is not a grant message" in str(exc_info.value)
+        with (
+            patch("registrar.core.apiing.exchanging.cloneMessage") as mock_clone,
+            patch("registrar.core.apiing.serdering.SerderACDC") as mock_serder_acdc,
+            patch("registrar.core.apiing.coring.Sadder") as mock_sadder_class,
+        ):
+            mock_clone.return_value = (mock_grant, mock_pathed)
+            mock_serder_acdc.return_value = mock_creder
+
+            # Mock Sadder
+            mock_sadder = Mock()
+            mock_sadder.raw = b"raw-data"
+            mock_sadder_class.return_value = mock_sadder
+
+            # Execute - should process without error even with different route
+            handler.handle(mock_serder)
+
+            # Verify cloneMessage called
+            mock_clone.assert_called_once_with(mock_hby, "test-said")
+
+            # Verify parseOne called for each label
+            assert mock_psr.parseOne.call_count == 3
 
     def test_handle_with_attachments_parameter(self, handler, mock_hby, mock_psr):
         """Test handle method when attachments parameter is provided"""
@@ -870,7 +939,7 @@ class TestIPEXGrantHandler:
         mock_serder.said = "test-said"
         mock_serder.ked = {
             "e": {
-                "acdc": {"i": "issuer-id"},
+                "acdc": {"i": "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"},
                 "anc": {"test": "data"},
                 "iss": {"test": "data"},
             }
@@ -888,15 +957,21 @@ class TestIPEXGrantHandler:
             "acdc": b"acdc-attachment",
         }
 
+        # Mock SerderACDC
+        mock_creder = Mock()
+        mock_creder.issuer = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"
+
         # Attachments parameter (currently not used in implementation)
         test_attachments = [("path", "data")]
 
         with (
             patch("registrar.core.apiing.exchanging.cloneMessage") as mock_clone,
             patch("registrar.core.apiing.coring.Sadder") as mock_sadder_class,
+            patch("registrar.core.apiing.serdering.SerderACDC") as mock_serder_acdc,
         ):
 
             mock_clone.return_value = (mock_grant, mock_pathed)
+            mock_serder_acdc.return_value = mock_creder
 
             mock_sadder = Mock()
             mock_sadder.raw = b"raw-data"

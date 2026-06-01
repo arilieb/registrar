@@ -5,7 +5,10 @@ registrar.app.registraring module
 Functions and services for managing healthKERI account watchers
 """
 
+from urllib.parse import urlparse
+
 from keri.app import habbing
+from keri.kering import ConfigurationError
 from keri.vdr import credentialing
 
 from sentinel.framework import register_handler
@@ -13,14 +16,13 @@ from sentinel.framework.basing import AppBaser
 from sentinel.framework.watching import FileWatchingService
 
 from registrar.core.apiing import RegistrarAPIService
-from registrar.core.serving import IPEXSocketListener
 
 # Handler imports
 from ..core.sentinel.handler import RegistrarEventHandler
 from ..core.sentinel.config import SentinelConfig
 
 
-async def setup_local(name, alias, base, bran, host, port, export_dir, http_port=8080):
+async def setup_local(name, alias, base, bran, issuer, schema, export_dir):
     """
     Setup local registrar services.
 
@@ -29,10 +31,9 @@ async def setup_local(name, alias, base, bran, host, port, export_dir, http_port
         alias: Human readable alias for the identifier
         base: Optional prefix to file location of KERI keystore
         bran: 22 character encryption passcode for keystore
-        host: Host address for services
-        port: Port for IPEXSocketListener
+        issuer: QB64 AID of the bootstrap issuer to who is authorized to issue KERIGuard credentials
+        schema: JSON schema for validating KERIGuard credentials
         export_dir: Directory for exporting CESR files
-        http_port: Port for API service (default: 8080)
 
     Returns:
         List of service instances
@@ -44,19 +45,25 @@ async def setup_local(name, alias, base, bran, host, port, export_dir, http_port
     if hab is None:
         hab = hby.makeHab(name=alias, transferable=False)
 
-    db = None
+    ends = hab.endsFor(hab.pre)
+    controller = ends.get("controller", {})
+    locs = controller.get(hab.pre, {})
+    http_location = locs.get("http", None)
+    if not http_location:
+        raise ConfigurationError(f"HTTP location not found for {alias}")
 
+    parsed_url = urlparse(http_location)
     services = []
-
-    # Add IPEXSocketListener if hby and db are available
-    if hby and db:
-        ipex_listener = IPEXSocketListener(hby=hby, db=db, host=host, port=port)
-        services.append(ipex_listener)
-
     # Add API service if hby is available
     if hby:
         api_service = RegistrarAPIService(
-            hby=hby, rgy=rgy, host=host, port=http_port
+            hby=hby,
+            hab=hab,
+            issuer=issuer,
+            rgy=rgy,
+            host=parsed_url.hostname,
+            port=parsed_url.port or 80,
+            schema=schema,
         )
         services.append(api_service)
 
