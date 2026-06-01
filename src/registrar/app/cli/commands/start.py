@@ -42,24 +42,17 @@ parser.add_argument(
     default="",
 )
 parser.add_argument(
-    "--host",
-    "-H",
-    action="store",
-    default="127.0.0.1",
-    help="Host the Sentinel server listens on. Default is 127.0.0.1.",
+    "--issuer",
+    "-I",
+    help="QB64 AID of the bootstrap issuer to who is authorized to issue KERIGuard credentials",
+    required=True,
 )
 parser.add_argument(
-    "--port",
-    "-P",
+    "--schema",
+    "-S",
     action="store",
-    default=35776,
-    help="Local port number the Sentinel server listens on. Default is 35776.",
-)
-parser.add_argument(
-    "--http-port",
-    action="store",
-    default=8080,
-    help="Local port number the API server listens on. Default is 8080.",
+    default=None,
+    help="Schema of valid authorization credentials.",
 )
 parser.add_argument(
     "--loglevel",
@@ -136,10 +129,9 @@ async def async_run_sentinel(args):
         alias=args.alias,
         base=args.base,
         bran=args.bran,
-        host=args.host,
-        port=int(args.port),
-        export_dir=args.sentinel_export_dir,
-        http_port=int(args.http_port),
+        issuer=args.issuer,
+        schema=args.schema,
+        export_dir=args.sentinel_export_dir
     )
 
     # Start all services and collect their tasks

@@ -29,6 +29,7 @@ class IPEXSocketListener:
     def __init__(
         self,
         hby: Habery,
+        issuer: str,
         db,
         host: str = "127.0.0.1",
         port: int = 5621,
@@ -39,12 +40,14 @@ class IPEXSocketListener:
 
         Args:
             hby: Habery instance for managing healthKERI accounts
+            issuer: QB64 AID of the bootstrap issuer to who is authorized to issue KERIGuard credentials
             db: Database instance with watched_poll table
             host: Host address to bind to (default: 127.0.0.1)
             port: Port number to listen on (default: 5621)
             poll_interval: Timer interval for checking connections (default: 0.5 seconds)
         """
         self.hby = hby
+        self.issuer = issuer
         self.rgy = credentialing.Regery(hby=self.hby, name=hby.name, base=hby.base)
         self.verifier = verifying.Verifier(hby=self.hby, reger=self.rgy.reger)
         self.psr = parsing.Parser(kvy=self.hby.kvy, tvy=self.rgy.tvy, vry=self.verifier)
