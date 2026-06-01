@@ -41,7 +41,12 @@ class TestIPEXSocketListener:
             patch("registrar.core.serving.parsing.Parser"),
         ):
             listener = IPEXSocketListener(
-                hby=mock_hby, db=mock_db, host="0.0.0.0", port=6000, poll_interval=0.1
+                hby=mock_hby,
+                issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
+                db=mock_db,
+                host="0.0.0.0",
+                port=6000,
+                poll_interval=0.1
             )
         return listener
 
@@ -60,10 +65,12 @@ class TestIPEXSocketListener:
             mock_parser_instance = Mock()
             mock_parser.return_value = mock_parser_instance
 
-            listener = IPEXSocketListener(hby=mock_hby, db=mock_db)
+            issuer = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"
+            listener = IPEXSocketListener(hby=mock_hby, issuer=issuer, db=mock_db)
 
             # Verify default parameters
             assert listener.hby == mock_hby
+            assert listener.issuer == issuer
             assert listener.db == mock_db
             assert listener.host == "127.0.0.1"
             assert listener.port == 5621
@@ -98,6 +105,7 @@ class TestIPEXSocketListener:
 
             listener = IPEXSocketListener(
                 hby=mock_hby,
+                issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
                 db=mock_db,
                 host="192.168.1.100",
                 port=7777,

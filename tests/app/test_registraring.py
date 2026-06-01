@@ -40,17 +40,15 @@ class TestSetupLocal:
             "alias": "test-alias",
             "base": "/tmp/keri",
             "bran": "0123456789abcdefghijkl",
-            "host": "127.0.0.1",
-            "port": 5620,
+            "issuer": "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-KQOQQ",
+            "schema": "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA",
             "export_dir": tmp_path / "exports",
-            "http_port": 8080,
         }
 
     @pytest.mark.asyncio
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -63,7 +61,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -77,6 +74,16 @@ class TestSetupLocal:
         mock_habery_class.return_value = mock_habery
         mock_regery_class.return_value = mock_regery
         mock_habery.habByName.return_value = mock_hab
+
+        # Mock hab.endsFor to return HTTP endpoint
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:8080"
+                }
+            }
+        }
 
         # Mock service instances
         mock_api_instance = Mock()
@@ -109,12 +116,15 @@ class TestSetupLocal:
         # Verify makeHab was NOT called since hab exists
         mock_habery.makeHab.assert_not_called()
 
-        # Verify IPEXSocketListener was NOT created (db is None in the implementation)
-        mock_ipex_listener.assert_not_called()
-
-        # Verify API service creation
+        # Verify API service creation with new signature
         mock_api_service.assert_called_once_with(
-            hby=mock_habery, rgy=mock_regery, host="127.0.0.1", port=8080
+            hby=mock_habery,
+            hab=mock_hab,
+            issuer=setup_params["issuer"],
+            rgy=mock_regery,
+            host="127.0.0.1",
+            port=8080,
+            schema=setup_params["schema"]
         )
 
         # Verify SentinelConfig creation
@@ -151,7 +161,6 @@ class TestSetupLocal:
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -164,7 +173,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -179,6 +187,16 @@ class TestSetupLocal:
         mock_regery_class.return_value = mock_regery
         mock_habery.habByName.return_value = None  # Hab doesn't exist
         mock_habery.makeHab.return_value = mock_hab
+
+        # Mock hab.endsFor to return HTTP endpoint
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:8080"
+                }
+            }
+        }
 
         # Mock service instances
         mock_api_instance = Mock()
@@ -204,7 +222,6 @@ class TestSetupLocal:
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -217,7 +234,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -226,7 +242,7 @@ class TestSetupLocal:
         mock_regery,
         mock_hab,
     ):
-        """Test setup_local with custom HTTP port"""
+        """Test setup_local with custom HTTP port from hab endpoint"""
         # Setup mocks
         mock_habery_class.return_value = mock_habery
         mock_regery_class.return_value = mock_regery
@@ -234,20 +250,34 @@ class TestSetupLocal:
         mock_api_instance = Mock()
         mock_api_service.return_value = mock_api_instance
 
-        # Execute with custom port
-        setup_params["http_port"] = 9090
+        # Mock hab.endsFor to return HTTP endpoint with custom port
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:9090"
+                }
+            }
+        }
+
+        # Execute
         await setup_local(**setup_params)
 
-        # Verify API service created with custom port
+        # Verify API service created with custom port from endpoint
         mock_api_service.assert_called_once_with(
-            hby=mock_habery, rgy=mock_regery, host="127.0.0.1", port=9090
+            hby=mock_habery,
+            hab=mock_hab,
+            issuer=setup_params["issuer"],
+            rgy=mock_regery,
+            host="127.0.0.1",
+            port=9090,
+            schema=setup_params["schema"]
         )
 
     @pytest.mark.asyncio
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -260,7 +290,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -269,7 +298,7 @@ class TestSetupLocal:
         mock_regery,
         mock_hab,
     ):
-        """Test setup_local with default HTTP port when not specified"""
+        """Test setup_local with default HTTP port when not specified in endpoint"""
         # Setup mocks
         mock_habery_class.return_value = mock_habery
         mock_regery_class.return_value = mock_regery
@@ -277,20 +306,34 @@ class TestSetupLocal:
         mock_api_instance = Mock()
         mock_api_service.return_value = mock_api_instance
 
-        # Execute without http_port parameter
-        del setup_params["http_port"]
+        # Mock hab.endsFor to return HTTP endpoint without port (defaults to 80)
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1"
+                }
+            }
+        }
+
+        # Execute
         await setup_local(**setup_params)
 
-        # Verify API service created with default port 8080
+        # Verify API service created with default port 80
         mock_api_service.assert_called_once_with(
-            hby=mock_habery, rgy=mock_regery, host="127.0.0.1", port=8080
+            hby=mock_habery,
+            hab=mock_hab,
+            issuer=setup_params["issuer"],
+            rgy=mock_regery,
+            host="127.0.0.1",
+            port=80,
+            schema=setup_params["schema"]
         )
 
     @pytest.mark.asyncio
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -303,7 +346,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -317,6 +359,16 @@ class TestSetupLocal:
         mock_habery_class.return_value = mock_habery
         mock_regery_class.return_value = mock_regery
         mock_habery.habByName.return_value = mock_hab
+
+        # Mock hab.endsFor to return HTTP endpoint
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:8080"
+                }
+            }
+        }
 
         # Execute
         await setup_local(**setup_params)
@@ -334,7 +386,6 @@ class TestSetupLocal:
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -347,7 +398,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -361,6 +411,16 @@ class TestSetupLocal:
         mock_habery_class.return_value = mock_habery
         mock_regery_class.return_value = mock_regery
         mock_habery.habByName.return_value = mock_hab
+
+        # Mock hab.endsFor to return HTTP endpoint
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:8080"
+                }
+            }
+        }
 
         export_dir = Path("/tmp/test/exports")
         setup_params["export_dir"] = export_dir
@@ -384,7 +444,6 @@ class TestSetupLocal:
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -397,7 +456,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -412,11 +470,18 @@ class TestSetupLocal:
         mock_regery_class.return_value = mock_regery
         mock_habery.habByName.return_value = mock_hab
 
+        # Mock hab.endsFor to return HTTP endpoint
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:8080"
+                }
+            }
+        }
+
         # Execute
         services = await setup_local(**setup_params)
-
-        # Verify IPEXSocketListener was NOT called (db is always None in current implementation)
-        mock_ipex_listener.assert_not_called()
 
         # Verify only API service and FileWatchingService are in the list
         assert len(services) == 2
@@ -425,7 +490,6 @@ class TestSetupLocal:
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -438,7 +502,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -452,6 +515,16 @@ class TestSetupLocal:
         mock_habery_class.return_value = mock_habery
         mock_regery_class.return_value = mock_regery
         mock_habery.habByName.return_value = mock_hab
+
+        # Mock hab.endsFor to return HTTP endpoint
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:8080"
+                }
+            }
+        }
 
         mock_api_instance = Mock()
         mock_api_service.return_value = mock_api_instance
@@ -469,7 +542,6 @@ class TestSetupLocal:
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -482,7 +554,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -496,6 +567,16 @@ class TestSetupLocal:
         mock_habery_class.return_value = mock_habery
         mock_regery_class.return_value = mock_regery
         mock_habery.habByName.return_value = mock_hab
+
+        # Mock hab.endsFor to return HTTP endpoint
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:8080"
+                }
+            }
+        }
 
         mock_config_instance = Mock()
         mock_sentinel_config.return_value = mock_config_instance
@@ -515,7 +596,6 @@ class TestSetupLocal:
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -528,7 +608,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -543,6 +622,16 @@ class TestSetupLocal:
         mock_regery_class.return_value = mock_regery
         mock_habery.habByName.return_value = mock_hab
         mock_habery.name = "test-habery-name"
+
+        # Mock hab.endsFor to return HTTP endpoint
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:8080"
+                }
+            }
+        }
 
         mock_sentinel_db_instance = Mock()
         mock_app_baser.return_value = mock_sentinel_db_instance
@@ -563,7 +652,6 @@ class TestSetupLocal:
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
-    @patch("registrar.app.registraring.IPEXSocketListener")
     @patch("registrar.app.registraring.SentinelConfig")
     @patch("registrar.app.registraring.RegistrarEventHandler")
     @patch("registrar.app.registraring.register_handler")
@@ -576,7 +664,6 @@ class TestSetupLocal:
         mock_register_handler,
         mock_event_handler,
         mock_sentinel_config,
-        mock_ipex_listener,
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
@@ -590,6 +677,16 @@ class TestSetupLocal:
         mock_habery_class.return_value = mock_habery
         mock_regery_class.return_value = mock_regery
         mock_habery.habByName.return_value = mock_hab
+
+        # Mock hab.endsFor to return HTTP endpoint
+        mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
+        mock_hab.endsFor.return_value = {
+            "controller": {
+                mock_hab.pre: {
+                    "http": "http://127.0.0.1:8080"
+                }
+            }
+        }
 
         mock_sentinel_db_instance = Mock()
         mock_app_baser.return_value = mock_sentinel_db_instance
