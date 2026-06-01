@@ -78,11 +78,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:8080"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:8080"}}
         }
 
         # Mock service instances
@@ -124,7 +120,7 @@ class TestSetupLocal:
             rgy=mock_regery,
             host="127.0.0.1",
             port=8080,
-            schema=setup_params["schema"]
+            schema=setup_params["schema"],
         )
 
         # Verify SentinelConfig creation
@@ -191,11 +187,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:8080"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:8080"}}
         }
 
         # Mock service instances
@@ -253,11 +245,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint with custom port
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:9090"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:9090"}}
         }
 
         # Execute
@@ -271,7 +259,7 @@ class TestSetupLocal:
             rgy=mock_regery,
             host="127.0.0.1",
             port=9090,
-            schema=setup_params["schema"]
+            schema=setup_params["schema"],
         )
 
     @pytest.mark.asyncio
@@ -309,11 +297,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint without port (defaults to 80)
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1"}}
         }
 
         # Execute
@@ -327,7 +311,7 @@ class TestSetupLocal:
             rgy=mock_regery,
             host="127.0.0.1",
             port=80,
-            schema=setup_params["schema"]
+            schema=setup_params["schema"],
         )
 
     @pytest.mark.asyncio
@@ -363,11 +347,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:8080"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:8080"}}
         }
 
         # Execute
@@ -415,11 +395,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:8080"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:8080"}}
         }
 
         export_dir = Path("/tmp/test/exports")
@@ -473,11 +449,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:8080"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:8080"}}
         }
 
         # Execute
@@ -519,11 +491,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:8080"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:8080"}}
         }
 
         mock_api_instance = Mock()
@@ -571,11 +539,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:8080"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:8080"}}
         }
 
         mock_config_instance = Mock()
@@ -626,11 +590,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:8080"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:8080"}}
         }
 
         mock_sentinel_db_instance = Mock()
@@ -681,11 +641,7 @@ class TestSetupLocal:
         # Mock hab.endsFor to return HTTP endpoint
         mock_hab.pre = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-HABPRE"
         mock_hab.endsFor.return_value = {
-            "controller": {
-                mock_hab.pre: {
-                    "http": "http://127.0.0.1:8080"
-                }
-            }
+            "controller": {mock_hab.pre: {"http": "http://127.0.0.1:8080"}}
         }
 
         mock_sentinel_db_instance = Mock()

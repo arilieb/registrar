@@ -3,6 +3,7 @@
 registrar.core.authing module
 
 """
+
 from urllib.parse import quote
 
 from keri import kering
@@ -16,13 +17,10 @@ from starlette.responses import Response
 
 class Authenticater:
 
-    DefaultFields = ["Signify-Resource",
-                     "@method",
-                     "@path",
-                     "Signify-Timestamp"]
+    DefaultFields = ["Signify-Resource", "@method", "@path", "Signify-Timestamp"]
 
     def __init__(self, hby: Habery, hab: Hab, reger: Reger, schema: str):
-        """ Create Agent Authenticator for verifying requests and signing responses
+        """Create Agent Authenticator for verifying requests and signing responses
 
         Parameters:
             hby (Habery): habitat of Agent for signing responses
@@ -42,7 +40,6 @@ class Authenticater:
         self.authorized_watchers = dict()
         self._load_authorized_watchers()
 
-
     @staticmethod
     def resource(request):
         headers = request.headers
@@ -57,7 +54,11 @@ class Authenticater:
         if resource not in self.hby.kevers:
             raise kering.AuthNError("unknown or invalid controller")
 
-        controller = resource if resource not in self.authorized_watchers else self.authorized_watchers[resource]
+        controller = (
+            resource
+            if resource not in self.authorized_watchers
+            else self.authorized_watchers[resource]
+        )
         if not self._verify_credential(controller):
             raise kering.AuthNError("invalid controller credential")
 
@@ -108,7 +109,7 @@ class Authenticater:
             if inputage.alg is not None:
                 values.append(f"alg={inputage.alg}")
 
-            params = ';'.join(values)
+            params = ";".join(values)
 
             items.append(f'"@signature-params: {params}"')
             ser = "\n".join(items).encode("utf-8")
@@ -122,7 +123,7 @@ class Authenticater:
         return True
 
     def sign(self, headers, method, path, fields=None):
-        """ Generate and add Signature Input and Signature fields to headers
+        """Generate and add Signature Input and Signature fields to headers
 
         Parameters:
             hab (Hab): The habitat of the agent that is replying to the request
@@ -139,15 +140,28 @@ class Authenticater:
         if fields is None:
             fields = self.DefaultFields
 
-        header, qsig = ending.siginput("signify", method, path, headers, fields=fields, hab=self.hab,
-                                       alg="ed25519", keyid=self.hab.pre)
+        header, qsig = ending.siginput(
+            "signify",
+            method,
+            path,
+            headers,
+            fields=fields,
+            hab=self.hab,
+            alg="ed25519",
+            keyid=self.hab.pre,
+        )
         headers.update(header)
-        signage = ending.Signage(markers=dict(signify=qsig), indexed=False, signer=None, ordinal=None, digest=None,
-                                 kind=None)
+        signage = ending.Signage(
+            markers=dict(signify=qsig),
+            indexed=False,
+            signer=None,
+            ordinal=None,
+            digest=None,
+            kind=None,
+        )
         headers.update(ending.signature([signage]))
 
         return headers
-
 
     def _load_authorized_watchers(self):
         for (cid, aid, oid), observed in self.hby.db.obvs.getItemIter():
@@ -170,7 +184,7 @@ class Authenticater:
 
 
 class SignatureValidationComponent(BaseHTTPMiddleware):
-    """ Validate Signature and Signature-Input header signatures """
+    """Validate Signature and Signature-Input header signatures"""
 
     def __init__(self, app, authn: Authenticater, allowed=None):
         """
@@ -188,7 +202,7 @@ class SignatureValidationComponent(BaseHTTPMiddleware):
         self.allowed = allowed
 
     async def dispatch(self, request, call_next):
-        """ Process request to ensure has a valid signature from caid, then sign the response
+        """Process request to ensure has a valid signature from caid, then sign the response
 
         Parameters:
             request: Starlette Request object
@@ -237,8 +251,8 @@ class SignatureValidationComponent(BaseHTTPMiddleware):
 
                 # Build headers dict from response
                 headers = dict(response.headers)
-                headers['Signify-Resource'] = self.authn.hab.pre
-                headers['Signify-Timestamp'] = helping.nowIso8601()
+                headers["Signify-Resource"] = self.authn.hab.pre
+                headers["Signify-Timestamp"] = helping.nowIso8601()
 
                 # Sign the headers
                 signed_headers = self.authn.sign(headers, request.method, quoted_path)
@@ -248,7 +262,7 @@ class SignatureValidationComponent(BaseHTTPMiddleware):
                     content=body,
                     status_code=response.status_code,
                     headers=signed_headers,
-                    media_type=response.media_type
+                    media_type=response.media_type,
                 )
 
                 return response

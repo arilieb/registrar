@@ -37,14 +37,14 @@ class RegistrarAPIService:
     """
 
     def __init__(
-            self,
-            hby: Habery,
-            hab: Hab,
-            rgy: Regery,
-            issuer: str,
-            schema: str,
-            host: str = "127.0.0.1",
-            port: int = 8080,
+        self,
+        hby: Habery,
+        hab: Hab,
+        rgy: Regery,
+        issuer: str,
+        schema: str,
+        host: str = "127.0.0.1",
+        port: int = 8080,
     ):
         """
         Initialize the RegistrarAPIService.
@@ -69,10 +69,14 @@ class RegistrarAPIService:
 
         self.verifier = verifying.Verifier(hby=self.hby, reger=self.rgy.reger)
         self.exc = exchanging.Exchanger(hby=self.hby, handlers=[])
-        self.credential_psr = parsing.Parser(kvy=self.hby.kvy, tvy=self.rgy.tvy, vry=self.verifier)
+        self.credential_psr = parsing.Parser(
+            kvy=self.hby.kvy, tvy=self.rgy.tvy, vry=self.verifier
+        )
         self.external_psr = parsing.Parser(kvy=self.hby.kvy, rvy=self.rvy, exc=self.exc)
 
-        self.exc.addHandler(IPEXGrantHandler(hby=self.hby, psr=self.credential_psr, issuer=issuer))
+        self.exc.addHandler(
+            IPEXGrantHandler(hby=self.hby, psr=self.credential_psr, issuer=issuer)
+        )
 
         self.host = host
         self.port = port
@@ -95,7 +99,7 @@ class RegistrarAPIService:
         self.app.add_middleware(
             SignatureValidationComponent,  # type: ignore
             authn=authn,
-            allowed=["/"]  # Paths that don't require signatures
+            allowed=["/"],  # Paths that don't require signatures
         )
 
     async def parse(self, request: Request):
@@ -265,7 +269,7 @@ class RegistrarAPIService:
         out = bytearray()
         for msg in self.rgy.reger.clonePreIter(pre=regk):
             serder = serdering.SerderKERI(raw=msg)
-            atc = msg[serder.size:]
+            atc = msg[serder.size :]
             out.extend(serder.raw)
             out.extend(atc)
 
@@ -331,10 +335,14 @@ class IPEXGrantHandler:
 
         creder = serdering.SerderACDC(sad=embeds["acdc"])
         if creder.issuer != self.issuer:
-            logger.info(f"ACDC issuer {creder.issuer} does not match expected issuer {self.issuer} on {serder.said}")
+            logger.info(
+                f"ACDC issuer {creder.issuer} does not match expected issuer {self.issuer} on {serder.said}"
+            )
             return
 
-        logger.info(f"Processing IPEX grant for {serder.said} with valid credential issued from {creder.issuer}")
+        logger.info(
+            f"Processing IPEX grant for {serder.said} with valid credential issued from {creder.issuer}"
+        )
 
         # Lets get the latest KEL and Registry if needed
         for label in ("anc", "iss", "acdc"):

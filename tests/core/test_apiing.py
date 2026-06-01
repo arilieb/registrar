@@ -56,7 +56,7 @@ class TestRegistrarAPIService:
                 issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
                 schema="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA",
                 host="0.0.0.0",
-                port=9090
+                port=9090,
             )
         return service
 
@@ -83,11 +83,7 @@ class TestRegistrarAPIService:
             schema = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA"
 
             service = RegistrarAPIService(
-                hby=mock_hby,
-                hab=mock_hab,
-                rgy=mock_rgy,
-                issuer=issuer,
-                schema=schema
+                hby=mock_hby, hab=mock_hab, rgy=mock_rgy, issuer=issuer, schema=schema
             )
 
             # Verify default parameters
@@ -129,7 +125,7 @@ class TestRegistrarAPIService:
                 issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
                 schema="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA",
                 host="192.168.1.1",
-                port=3000
+                port=3000,
             )
 
             assert service.host == "192.168.1.1"
@@ -819,7 +815,7 @@ class TestIPEXGrantHandler:
         return IPEXGrantHandler(
             hby=mock_hby,
             psr=mock_psr,
-            issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"
+            issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
         )
 
     def test_init(self, handler, mock_hby, mock_psr):

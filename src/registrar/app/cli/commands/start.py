@@ -131,7 +131,7 @@ async def async_run_sentinel(args):
         bran=args.bran,
         issuer=args.issuer,
         schema=args.schema,
-        export_dir=args.sentinel_export_dir
+        export_dir=args.sentinel_export_dir,
     )
 
     # Start all services and collect their tasks

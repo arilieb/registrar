@@ -46,7 +46,7 @@ class TestIPEXSocketListener:
                 db=mock_db,
                 host="0.0.0.0",
                 port=6000,
-                poll_interval=0.1
+                poll_interval=0.1,
             )
         return listener
 

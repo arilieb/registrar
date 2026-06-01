@@ -4,6 +4,7 @@ registrar.app.registraring module
 
 Functions and services for managing healthKERI account watchers
 """
+
 from urllib.parse import urlparse
 
 from keri.app import habbing
@@ -51,13 +52,18 @@ async def setup_local(name, alias, base, bran, issuer, schema, export_dir):
     if not http_location:
         raise ConfigurationError(f"HTTP location not found for {alias}")
 
-
     parsed_url = urlparse(http_location)
     services = []
     # Add API service if hby is available
     if hby:
         api_service = RegistrarAPIService(
-            hby=hby, hab=hab, issuer=issuer, rgy=rgy, host=parsed_url.hostname, port=parsed_url.port or 80, schema=schema
+            hby=hby,
+            hab=hab,
+            issuer=issuer,
+            rgy=rgy,
+            host=parsed_url.hostname,
+            port=parsed_url.port or 80,
+            schema=schema,
         )
         services.append(api_service)
 
