@@ -5,6 +5,7 @@ registrar.core.authing module
 """
 
 from urllib.parse import quote
+from re import Pattern
 
 from keri import kering
 from keri.app.habbing import Habery, Hab
@@ -13,6 +14,7 @@ from keri.help import helping
 from keri.vdr.viring import Reger
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+from starlette.routing import compile_path
 
 
 class Authenticater:
@@ -192,7 +194,8 @@ class SignatureValidationComponent(BaseHTTPMiddleware):
         Parameters:
             app: Starlette application instance
             authn (Authenticater): Authenticator to validate signature headers on request
-            allowed (list[str]): Paths that are not protected.
+            allowed (list[str]): Path patterns that are not protected. Supports Starlette-style
+                               patterns like "/", "/registry/{regi}", "/public/{path:path}".
 
         """
         super().__init__(app)
@@ -200,6 +203,19 @@ class SignatureValidationComponent(BaseHTTPMiddleware):
             allowed = []
         self.authn = authn
         self.allowed = allowed
+
+        # Compile path patterns into regex for efficient matching
+        self.allowed_patterns: list[tuple[str, Pattern[str]]] = []
+        for path in allowed:
+            try:
+                path_regex, path_format, param_convertors = compile_path(path)
+                self.allowed_patterns.append((path, path_regex))
+            except (AssertionError, ValueError) as e:
+                # Log warning if pattern compilation fails, but don't crash
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to compile path pattern '{path}': {e}")
 
     async def dispatch(self, request, call_next):
         """Process request to ensure has a valid signature from caid, then sign the response
@@ -211,9 +227,10 @@ class SignatureValidationComponent(BaseHTTPMiddleware):
 
         """
 
-        # Check if path is in allowed list
-        for path in self.allowed:
-            if request.url.path.startswith(path):
+        # Check if path matches any allowed pattern
+        for pattern_str, pattern_regex in self.allowed_patterns:
+            if pattern_regex.match(request.url.path):
+                # Path matches an allowed pattern, skip signature validation
                 response = await call_next(request)
                 return response
 
