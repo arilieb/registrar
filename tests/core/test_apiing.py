@@ -47,7 +47,6 @@ class TestRegistrarAPIService:
             patch("registrar.core.apiing.exchanging.Exchanger"),
             patch("registrar.core.apiing.parsing.Parser"),
             patch("registrar.core.apiing.IPEXGrantHandler"),
-            patch("registrar.core.apiing.Authenticater"),
         ):
             service = RegistrarAPIService(
                 hby=mock_hby,
@@ -67,9 +66,6 @@ class TestRegistrarAPIService:
             patch("registrar.core.apiing.exchanging.Exchanger") as mock_exchanger,
             patch("registrar.core.apiing.parsing.Parser") as mock_parser,
             patch("registrar.core.apiing.IPEXGrantHandler"),
-            patch("registrar.core.apiing.routing.Router"),
-            patch("registrar.core.apiing.routing.Revery"),
-            patch("registrar.core.apiing.Authenticater"),
         ):
 
             mock_verifier_instance = Mock()
@@ -113,9 +109,6 @@ class TestRegistrarAPIService:
             patch("registrar.core.apiing.exchanging.Exchanger"),
             patch("registrar.core.apiing.parsing.Parser"),
             patch("registrar.core.apiing.IPEXGrantHandler"),
-            patch("registrar.core.apiing.routing.Router"),
-            patch("registrar.core.apiing.routing.Revery"),
-            patch("registrar.core.apiing.Authenticater"),
         ):
 
             service = RegistrarAPIService(
@@ -164,7 +157,6 @@ class TestRegistrarAPIService:
 
         # Mock parser and processing methods
         api_service.external_psr.parse = Mock()
-        api_service.rvy.processEscrowReply = Mock()
         api_service.credential_psr.kvy.processEscrows = Mock()
         api_service.exc.processEscrow = Mock()
         api_service.rgy.tvy.processEscrows = Mock()
@@ -176,7 +168,6 @@ class TestRegistrarAPIService:
         # Verify
         mock_request.body.assert_called_once()
         api_service.external_psr.parse.assert_called_once_with(test_data)
-        api_service.rvy.processEscrowReply.assert_called_once()
         api_service.credential_psr.kvy.processEscrows.assert_called_once()
         api_service.exc.processEscrow.assert_called_once()
         api_service.rgy.tvy.processEscrows.assert_called_once()
