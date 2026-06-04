@@ -12,7 +12,7 @@ from hypercorn.config import Config
 from keri import help, kering
 from keri.app import signing
 from keri.app.habbing import Habery, Hab
-from keri.core import serdering, parsing, coring, routing
+from keri.core import serdering, parsing, coring
 from keri.peer import exchanging
 from keri.vdr import verifying
 from keri.vdr.credentialing import Regery
@@ -20,8 +20,6 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
-
-from registrar.core.authing import Authenticater, SignatureValidationComponent
 
 logger = help.ogler.getLogger()
 
@@ -63,16 +61,12 @@ class RegistrarAPIService:
         self.rgy = rgy
         self.issuer = issuer
 
-        self.rtr = routing.Router()
-        self.rvy = routing.Revery(db=self.hby.db, rtr=self.rtr)
-        self.hby.kvy.registerReplyRoutes(router=self.rtr)
-
         self.verifier = verifying.Verifier(hby=self.hby, reger=self.rgy.reger)
         self.exc = exchanging.Exchanger(hby=self.hby, handlers=[])
         self.credential_psr = parsing.Parser(
             kvy=self.hby.kvy, tvy=self.rgy.tvy, vry=self.verifier
         )
-        self.external_psr = parsing.Parser(kvy=self.hby.kvy, rvy=self.rvy, exc=self.exc)
+        self.external_psr = parsing.Parser(exc=self.exc)
 
         self.exc.addHandler(
             IPEXGrantHandler(hby=self.hby, psr=self.credential_psr, issuer=issuer)
@@ -95,13 +89,6 @@ class RegistrarAPIService:
             ],
         )
 
-        authn = Authenticater(hby=hby, hab=hab, reger=self.rgy.reger, schema=schema)
-        self.app.add_middleware(
-            SignatureValidationComponent,  # type: ignore
-            authn=authn,
-            allowed=["/"],  # Paths that don't require signatures
-        )
-
     async def parse(self, request: Request):
         """
         Handle GET /registry endpoint.
@@ -112,7 +99,6 @@ class RegistrarAPIService:
         data = await request.body()
         self.external_psr.parse(data)
 
-        self.rvy.processEscrowReply()
         self.exc.processEscrow()
         self.credential_psr.kvy.processEscrows()
         self.rgy.tvy.processEscrows()
