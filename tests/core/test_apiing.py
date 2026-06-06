@@ -825,6 +825,7 @@ class TestIPEXGrantHandler:
             "e": {
                 "acdc": {"i": "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"},
                 "anc": {"test": "data"},
+                "reg": {"test": "data"},
                 "iss": {"test": "data"},
             }
         }
@@ -837,6 +838,7 @@ class TestIPEXGrantHandler:
         # Mock pathed attachments
         mock_pathed = {
             "anc": b"anc-attachment",
+            "reg": b"reg-attachment",
             "iss": b"iss-attachment",
             "acdc": b"acdc-attachment",
         }
@@ -857,7 +859,7 @@ class TestIPEXGrantHandler:
 
             # Mock Sadder for each label
             mock_sadders = []
-            for _ in range(3):
+            for _ in range(4):
                 mock_sadder = Mock()
                 mock_sadder.raw = b"raw-data"
                 mock_sadders.append(mock_sadder)
@@ -870,7 +872,7 @@ class TestIPEXGrantHandler:
             mock_clone.assert_called_once_with(mock_hby, "test-said")
 
             # Verify parseOne called for each label
-            assert mock_psr.parseOne.call_count == 3
+            assert mock_psr.parseOne.call_count == 4
 
     def test_handle_invalid_route(self, handler, mock_hby, mock_psr):
         """Test handle method processes message regardless of route"""
@@ -881,6 +883,7 @@ class TestIPEXGrantHandler:
             "e": {
                 "acdc": {"i": "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"},
                 "anc": {"test": "data"},
+                "reg": {"test": "data"},
                 "iss": {"test": "data"},
             }
         }
@@ -893,6 +896,7 @@ class TestIPEXGrantHandler:
         # Mock pathed attachments
         mock_pathed = {
             "anc": b"anc-attachment",
+            "reg": b"reg-attachment",
             "iss": b"iss-attachment",
             "acdc": b"acdc-attachment",
         }
@@ -921,7 +925,7 @@ class TestIPEXGrantHandler:
             mock_clone.assert_called_once_with(mock_hby, "test-said")
 
             # Verify parseOne called for each label
-            assert mock_psr.parseOne.call_count == 3
+            assert mock_psr.parseOne.call_count == 4
 
     def test_handle_with_attachments_parameter(self, handler, mock_hby, mock_psr):
         """Test handle method when attachments parameter is provided"""
@@ -932,6 +936,7 @@ class TestIPEXGrantHandler:
             "e": {
                 "acdc": {"i": "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER"},
                 "anc": {"test": "data"},
+                "reg": {"test": "data"},
                 "iss": {"test": "data"},
             }
         }
@@ -944,6 +949,7 @@ class TestIPEXGrantHandler:
         # Mock pathed attachments
         mock_pathed = {
             "anc": b"anc-attachment",
+            "reg": b"reg-attachment",
             "iss": b"iss-attachment",
             "acdc": b"acdc-attachment",
         }

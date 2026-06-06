@@ -331,7 +331,7 @@ class IPEXGrantHandler:
         )
 
         # Lets get the latest KEL and Registry if needed
-        for label in ("anc", "iss", "acdc"):
+        for label in ("anc", "reg", "iss", "acdc"):
             ked = embeds[label]
             sadder = coring.Sadder(ked=ked)
             ims = bytearray(sadder.raw) + pathed[label]
