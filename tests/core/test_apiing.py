@@ -40,7 +40,13 @@ class TestRegistrarAPIService:
         return hab
 
     @pytest.fixture
-    def api_service(self, mock_hby, mock_hab, mock_rgy):
+    def mock_org(self):
+        """Create a mock Organizer instance"""
+        org = Mock()
+        return org
+
+    @pytest.fixture
+    def api_service(self, mock_hby, mock_hab, mock_org, mock_rgy):
         """Create a RegistrarAPIService instance"""
         with (
             patch("registrar.core.apiing.verifying.Verifier"),
@@ -51,6 +57,7 @@ class TestRegistrarAPIService:
             service = RegistrarAPIService(
                 hby=mock_hby,
                 hab=mock_hab,
+                org=mock_org,
                 rgy=mock_rgy,
                 issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
                 schema="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA",
@@ -59,7 +66,7 @@ class TestRegistrarAPIService:
             )
         return service
 
-    def test_init_default_params(self, mock_hby, mock_hab, mock_rgy):
+    def test_init_default_params(self, mock_hby, mock_hab, mock_org, mock_rgy):
         """Test RegistrarAPIService initialization with default parameters"""
         with (
             patch("registrar.core.apiing.verifying.Verifier") as mock_verifier,
@@ -79,12 +86,18 @@ class TestRegistrarAPIService:
             schema = "EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA"
 
             service = RegistrarAPIService(
-                hby=mock_hby, hab=mock_hab, rgy=mock_rgy, issuer=issuer, schema=schema
+                hby=mock_hby,
+                hab=mock_hab,
+                org=mock_org,
+                rgy=mock_rgy,
+                issuer=issuer,
+                schema=schema,
             )
 
             # Verify default parameters
             assert service.hby == mock_hby
             assert service.hab == mock_hab
+            assert service.org == mock_org
             assert service.rgy == mock_rgy
             assert service.issuer == issuer
             assert service.host == "127.0.0.1"
@@ -102,7 +115,7 @@ class TestRegistrarAPIService:
             # Verify handler added to exchanger
             mock_exchanger_instance.addHandler.assert_called_once()
 
-    def test_init_custom_params(self, mock_hby, mock_hab, mock_rgy):
+    def test_init_custom_params(self, mock_hby, mock_hab, mock_org, mock_rgy):
         """Test RegistrarAPIService initialization with custom parameters"""
         with (
             patch("registrar.core.apiing.verifying.Verifier"),
@@ -114,6 +127,7 @@ class TestRegistrarAPIService:
             service = RegistrarAPIService(
                 hby=mock_hby,
                 hab=mock_hab,
+                org=mock_org,
                 rgy=mock_rgy,
                 issuer="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-ISSUER",
                 schema="EBfdLv2XaD_HaABMmPWRVMdKWSm7xvlbemcRMT-SCHEMA",
@@ -135,6 +149,7 @@ class TestRegistrarAPIService:
         assert "/registry/{regi}" in route_paths
         assert "/tel/{said}" in route_paths
         assert "/credential/{said}" in route_paths
+        assert "/oobi/{aid}" in route_paths
 
         # Verify specific methods (note: Starlette adds HEAD to GET routes automatically)
         for route in routes:
@@ -144,6 +159,7 @@ class TestRegistrarAPIService:
                 "/registry/{regi}",
                 "/tel/{said}",
                 "/credential/{said}",
+                "/oobi/{aid}",
             ]:
                 assert "GET" in route.methods
 
@@ -407,6 +423,99 @@ class TestRegistrarAPIService:
         assert isinstance(response, JSONResponse)
         assert response.status_code == 404
         assert b"Credential not found for said test-cred-789" in response.body
+
+    @pytest.mark.asyncio
+    async def test_get_oobi_success(self, api_service):
+        """Test get_oobi endpoint with successful response"""
+        mock_request = Mock(spec=Request)
+        mock_request.path_params = {"aid": "EXample123"}
+
+        # Mock contact with OOBI field
+        test_contact = {
+            "id": "EXample123",
+            "alias": "test",
+            "oobi": "http://localhost:5632/oobi/EXample123",
+        }
+        api_service.org.get = Mock(return_value=test_contact)
+
+        response = await api_service.get_oobi(mock_request)
+
+        api_service.org.get.assert_called_once_with("EXample123")
+        assert response.status_code == 200
+        assert isinstance(response, JSONResponse)
+        assert b'"url"' in response.body
+        assert b"http://localhost:5632/oobi/EXample123" in response.body
+
+    @pytest.mark.asyncio
+    async def test_get_oobi_missing_aid(self, api_service):
+        """Test get_oobi endpoint with missing aid parameter"""
+        mock_request = Mock(spec=Request)
+        mock_request.path_params = {}
+
+        response = await api_service.get_oobi(mock_request)
+
+        assert response.status_code == 404
+        assert isinstance(response, JSONResponse)
+        assert b"Contact not found" in response.body
+
+    @pytest.mark.asyncio
+    async def test_get_oobi_contact_not_found(self, api_service):
+        """Test get_oobi endpoint when contact doesn't exist"""
+        mock_request = Mock(spec=Request)
+        mock_request.path_params = {"aid": "ENoSuchAID"}
+
+        api_service.org.get = Mock(return_value=None)
+
+        response = await api_service.get_oobi(mock_request)
+
+        api_service.org.get.assert_called_once_with("ENoSuchAID")
+        assert response.status_code == 404
+        assert isinstance(response, JSONResponse)
+        assert b"Contact not found" in response.body
+
+    @pytest.mark.asyncio
+    async def test_get_oobi_oobi_not_found(self, api_service):
+        """Test get_oobi endpoint when contact exists but has no OOBI"""
+        mock_request = Mock(spec=Request)
+        mock_request.path_params = {"aid": "EXample456"}
+
+        # Contact exists but has no OOBI field
+        test_contact = {"id": "EXample456", "alias": "test"}
+        api_service.org.get = Mock(return_value=test_contact)
+
+        # Mock database lookup also returns None
+        api_service.hby.db.roobi.get = Mock(return_value=None)
+
+        response = await api_service.get_oobi(mock_request)
+
+        api_service.org.get.assert_called_once_with("EXample456")
+        assert response.status_code == 404
+        assert isinstance(response, JSONResponse)
+        assert b"OOBI not found for contact" in response.body
+
+    @pytest.mark.asyncio
+    async def test_get_oobi_from_database(self, api_service):
+        """Test get_oobi endpoint retrieving OOBI from database when not in contact"""
+        mock_request = Mock(spec=Request)
+        mock_request.path_params = {"aid": "EXample789"}
+
+        # Contact exists but has no OOBI field
+        test_contact = {"id": "EXample789", "alias": "test"}
+        api_service.org.get = Mock(return_value=test_contact)
+
+        # Mock database lookup returns OobiRecord
+        mock_oobi_record = Mock()
+        mock_oobi_record.url = "http://localhost:5632/oobi/EXample789/witness"
+        api_service.hby.db.roobi.get = Mock(return_value=mock_oobi_record)
+
+        response = await api_service.get_oobi(mock_request)
+
+        api_service.org.get.assert_called_once_with("EXample789")
+        api_service.hby.db.roobi.get.assert_called_once_with(keys=("EXample789",))
+        assert response.status_code == 200
+        assert isinstance(response, JSONResponse)
+        assert b'"url"' in response.body
+        assert b"http://localhost:5632/oobi/EXample789/witness" in response.body
 
     def test_output_tel(self, api_service):
         """Test output_tel method"""

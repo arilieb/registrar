@@ -10,7 +10,7 @@ import asyncio
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from keri import help, kering
-from keri.app import signing
+from keri.app import signing, connecting
 from keri.app.habbing import Habery, Hab
 from keri.core import serdering, parsing, coring
 from keri.peer import exchanging
@@ -28,16 +28,18 @@ class RegistrarAPIService:
     """
     Asyncio-based API service using Starlette and Hypercorn.
 
-    Provides three GET endpoints:
+    Provides GET endpoints:
     - /registry: Returns registry data
     - /tel: Returns transaction event log data
     - /credential: Returns credential data
+    - /oobi/{aid}: Returns OOBI URL for a contact
     """
 
     def __init__(
         self,
         hby: Habery,
         hab: Hab,
+        org: connecting.Organizer,
         rgy: Regery,
         issuer: str,
         schema: str,
@@ -50,6 +52,7 @@ class RegistrarAPIService:
         Args:
             hby: Habery instance for managing healthKERI accounts
             hab: Hab instance for signing responses
+            org: Organizer instance for managing contacts
             rgy: Regery instance for managing credentials
             issuer: Issuer DID for credential issuance
             schema: Schema for credential issuance
@@ -58,6 +61,7 @@ class RegistrarAPIService:
         """
         self.hby = hby
         self.hab = hab
+        self.org = org
         self.rgy = rgy
         self.issuer = issuer
 
@@ -86,6 +90,7 @@ class RegistrarAPIService:
                 Route("/registry/{regi}", self.get_registry, methods=["GET"]),
                 Route("/tel/{said}", self.get_tel, methods=["GET"]),
                 Route("/credential/{said}", self.get_credential, methods=["GET"]),
+                Route("/oobi/{aid}", self.get_oobi, methods=["GET"]),
             ],
         )
 
@@ -192,6 +197,48 @@ class RegistrarAPIService:
             return JSONResponse(
                 {"message": f"Credential not found for said {said}"}, status_code=404
             )
+
+    async def get_oobi(self, request: Request):
+        """
+        Handle GET /oobi/{aid} endpoint.
+
+        Looks up a contact by AID and returns the associated OOBI URL.
+
+        Args:
+            request: Starlette Request object with path parameter 'aid'
+
+        Returns:
+            JSONResponse:
+                - 200: {"url": "http://..."} on success
+                - 404: {"message": "Contact not found"} if AID not in contacts
+                - 404: {"message": "OOBI not found for contact"} if contact exists but no OOBI
+        """
+        aid = request.path_params.get("aid")
+        if aid is None:
+            return JSONResponse({"message": "Contact not found"}, status_code=404)
+
+        # Look up contact in Organizer
+        contact = self.org.get(aid)
+        if contact is None:
+            return JSONResponse({"message": "Contact not found"}, status_code=404)
+
+        # Try to get OOBI URL from contact or database
+        # Check if contact has an 'oobi' field
+        oobi_url = contact.get("oobi")
+
+        # If not in contact, try database lookup
+        if not oobi_url:
+            # Check resolved OOBIs in database
+            oobi_record = self.hby.db.roobi.get(keys=(aid,))
+            if oobi_record and hasattr(oobi_record, "url"):
+                oobi_url = oobi_record.url
+
+        if not oobi_url:
+            return JSONResponse(
+                {"message": "OOBI not found for contact"}, status_code=404
+            )
+
+        return JSONResponse({"url": oobi_url}, status_code=200)
 
     async def run(self):
         """
