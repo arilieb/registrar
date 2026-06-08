@@ -7,7 +7,7 @@ Functions and services for managing healthKERI account watchers
 
 from urllib.parse import urlparse
 
-from keri.app import habbing
+from keri.app import habbing, connecting
 from keri.kering import ConfigurationError
 from keri.vdr import credentialing
 
@@ -56,9 +56,13 @@ async def setup_local(name, alias, base, bran, issuer, schema, export_dir):
     services = []
     # Add API service if hby is available
     if hby:
+        # Create Organizer for contact management
+        org = connecting.Organizer(hby=hby)
+
         api_service = RegistrarAPIService(
             hby=hby,
             hab=hab,
+            org=org,
             issuer=issuer,
             rgy=rgy,
             host=parsed_url.hostname,

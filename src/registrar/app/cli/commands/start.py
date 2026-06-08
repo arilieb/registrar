@@ -84,7 +84,7 @@ parser.add_argument(
     help="Prints out version of script runner.",
 )
 
-FORMAT = "%(asctime)s [sentinel] %(levelname)-8s %(message)s"
+FORMAT = "%(asctime)s [registrar] %(levelname)-8s %(message)s"
 
 
 def launch(args):

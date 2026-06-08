@@ -4,7 +4,7 @@ Unit tests for registrar.app.registraring module
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, ANY
 from pathlib import Path
 
 from registrar.app.registraring import setup_local
@@ -116,6 +116,7 @@ class TestSetupLocal:
         mock_api_service.assert_called_once_with(
             hby=mock_habery,
             hab=mock_hab,
+            org=ANY,
             issuer=setup_params["issuer"],
             rgy=mock_regery,
             host="127.0.0.1",
@@ -255,6 +256,7 @@ class TestSetupLocal:
         mock_api_service.assert_called_once_with(
             hby=mock_habery,
             hab=mock_hab,
+            org=ANY,
             issuer=setup_params["issuer"],
             rgy=mock_regery,
             host="127.0.0.1",
@@ -307,6 +309,7 @@ class TestSetupLocal:
         mock_api_service.assert_called_once_with(
             hby=mock_habery,
             hab=mock_hab,
+            org=ANY,
             issuer=setup_params["issuer"],
             rgy=mock_regery,
             host="127.0.0.1",
