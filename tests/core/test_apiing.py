@@ -430,21 +430,28 @@ class TestRegistrarAPIService:
         mock_request = Mock(spec=Request)
         mock_request.path_params = {"aid": "EXample123"}
 
-        # Mock contact with OOBI field
-        test_contact = {
-            "id": "EXample123",
-            "alias": "test",
-            "oobi": "http://localhost:5632/oobi/EXample123",
-        }
-        api_service.org.get = Mock(return_value=test_contact)
+        # Mock kever for the AID
+        mock_kever = Mock()
+        mock_kever.serder = Mock()
+        mock_kever.delegated = False
+        api_service.hby.kevers = {"EXample123": mock_kever}
+
+        # Mock fully witnessed check
+        api_service.hby.db.fullyWitnessed = Mock(return_value=True)
+
+        # Mock replyToOobi to return CESR data
+        test_cesr_data = b"CESR-OOBI-DATA-HERE"
+        api_service.hab.replyToOobi = Mock(return_value=test_cesr_data)
 
         response = await api_service.get_oobi(mock_request)
 
-        api_service.org.get.assert_called_once_with("EXample123")
+        api_service.hab.replyToOobi.assert_called_once_with(
+            aid="EXample123", role=kering.Roles.witness
+        )
         assert response.status_code == 200
-        assert isinstance(response, JSONResponse)
-        assert b'"url"' in response.body
-        assert b"http://localhost:5632/oobi/EXample123" in response.body
+        assert isinstance(response, Response)
+        assert response.body == test_cesr_data
+        assert response.media_type == "application/cesr"
 
     @pytest.mark.asyncio
     async def test_get_oobi_missing_aid(self, api_service):
@@ -456,66 +463,83 @@ class TestRegistrarAPIService:
 
         assert response.status_code == 404
         assert isinstance(response, JSONResponse)
-        assert b"Contact not found" in response.body
+        assert b"AID not found" in response.body
 
     @pytest.mark.asyncio
-    async def test_get_oobi_contact_not_found(self, api_service):
-        """Test get_oobi endpoint when contact doesn't exist"""
+    async def test_get_oobi_aid_not_found(self, api_service):
+        """Test get_oobi endpoint when AID doesn't exist in kevers"""
         mock_request = Mock(spec=Request)
         mock_request.path_params = {"aid": "ENoSuchAID"}
 
-        api_service.org.get = Mock(return_value=None)
+        # AID not in kevers
+        api_service.hby.kevers = {}
 
         response = await api_service.get_oobi(mock_request)
 
-        api_service.org.get.assert_called_once_with("ENoSuchAID")
         assert response.status_code == 404
         assert isinstance(response, JSONResponse)
-        assert b"Contact not found" in response.body
+        assert b"AID not found" in response.body
 
     @pytest.mark.asyncio
-    async def test_get_oobi_oobi_not_found(self, api_service):
-        """Test get_oobi endpoint when contact exists but has no OOBI"""
+    async def test_get_oobi_not_fully_witnessed(self, api_service):
+        """Test get_oobi endpoint when AID is not fully witnessed"""
         mock_request = Mock(spec=Request)
         mock_request.path_params = {"aid": "EXample456"}
 
-        # Contact exists but has no OOBI field
-        test_contact = {"id": "EXample456", "alias": "test"}
-        api_service.org.get = Mock(return_value=test_contact)
-
-        # Mock database lookup also returns None
-        api_service.hby.db.roobi.get = Mock(return_value=None)
+        # Mock kever exists but not fully witnessed
+        mock_kever = Mock()
+        mock_kever.serder = Mock()
+        mock_kever.delegated = False
+        api_service.hby.kevers = {"EXample456": mock_kever}
+        api_service.hby.db.fullyWitnessed = Mock(return_value=False)
 
         response = await api_service.get_oobi(mock_request)
 
-        api_service.org.get.assert_called_once_with("EXample456")
         assert response.status_code == 404
         assert isinstance(response, JSONResponse)
-        assert b"OOBI not found for contact" in response.body
+        assert b"AID not fully witnessed" in response.body
 
     @pytest.mark.asyncio
-    async def test_get_oobi_from_database(self, api_service):
-        """Test get_oobi endpoint retrieving OOBI from database when not in contact"""
+    async def test_get_oobi_delegated_not_found(self, api_service):
+        """Test get_oobi endpoint when AID is delegated but delegate not found"""
         mock_request = Mock(spec=Request)
         mock_request.path_params = {"aid": "EXample789"}
 
-        # Contact exists but has no OOBI field
-        test_contact = {"id": "EXample789", "alias": "test"}
-        api_service.org.get = Mock(return_value=test_contact)
-
-        # Mock database lookup returns OobiRecord
-        mock_oobi_record = Mock()
-        mock_oobi_record.url = "http://localhost:5632/oobi/EXample789/witness"
-        api_service.hby.db.roobi.get = Mock(return_value=mock_oobi_record)
+        # Mock delegated kever with missing delegate
+        mock_kever = Mock()
+        mock_kever.serder = Mock()
+        mock_kever.delegated = True
+        mock_kever.delpre = "EMissingDelegate"
+        api_service.hby.kevers = {"EXample789": mock_kever}
+        api_service.hby.db.fullyWitnessed = Mock(return_value=True)
 
         response = await api_service.get_oobi(mock_request)
 
-        api_service.org.get.assert_called_once_with("EXample789")
-        api_service.hby.db.roobi.get.assert_called_once_with(keys=("EXample789",))
-        assert response.status_code == 200
+        assert response.status_code == 404
         assert isinstance(response, JSONResponse)
-        assert b'"url"' in response.body
-        assert b"http://localhost:5632/oobi/EXample789/witness" in response.body
+        assert b"AID delegate not found" in response.body
+
+    @pytest.mark.asyncio
+    async def test_get_oobi_no_messages(self, api_service):
+        """Test get_oobi endpoint when replyToOobi returns empty"""
+        mock_request = Mock(spec=Request)
+        mock_request.path_params = {"aid": "EXample789"}
+
+        # Mock kever
+        mock_kever = Mock()
+        mock_kever.serder = Mock()
+        mock_kever.delegated = False
+        api_service.hby.kevers = {"EXample789": mock_kever}
+        api_service.hby.db.fullyWitnessed = Mock(return_value=True)
+
+        # replyToOobi returns empty/None
+        api_service.hab.replyToOobi = Mock(return_value=None)
+
+        response = await api_service.get_oobi(mock_request)
+
+        assert response.status_code == 404
+        assert isinstance(response, JSONResponse)
+        assert b"Contact not found" in response.body
 
     def test_output_tel(self, api_service):
         """Test output_tel method"""

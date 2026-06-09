@@ -202,7 +202,7 @@ class RegistrarAPIService:
         """
         Handle GET /oobi/{aid} endpoint.
 
-        Looks up a contact by AID and returns the associated OOBI URL.
+        Looks up an AID and returns a CESR oobi response.
 
         Args:
             request: Starlette Request object with path parameter 'aid'
@@ -213,32 +213,30 @@ class RegistrarAPIService:
                 - 404: {"message": "Contact not found"} if AID not in contacts
                 - 404: {"message": "OOBI not found for contact"} if contact exists but no OOBI
         """
-        aid = request.path_params.get("aid")
-        if aid is None:
-            return JSONResponse({"message": "Contact not found"}, status_code=404)
+        aid = request.path_params.get("aid", "")
+        if not aid:
+            return JSONResponse({"message": "AID not found"}, status_code=404)
 
         # Look up contact in Organizer
-        contact = self.org.get(aid)
-        if contact is None:
-            return JSONResponse({"message": "Contact not found"}, status_code=404)
+        if aid not in self.hby.kevers:
+            return JSONResponse({"message": "AID not found"}, status_code=404)
 
-        # Try to get OOBI URL from contact or database
-        # Check if contact has an 'oobi' field
-        oobi_url = contact.get("oobi")
+        kever = self.hby.kevers[aid]
+        if not self.hby.db.fullyWitnessed(kever.serder):
+            return JSONResponse({"message": "AID not fully witnessed"}, status_code=404)
 
-        # If not in contact, try database lookup
-        if not oobi_url:
-            # Check resolved OOBIs in database
-            oobi_record = self.hby.db.roobi.get(keys=(aid,))
-            if oobi_record and hasattr(oobi_record, "url"):
-                oobi_url = oobi_record.url
+        if kever.delegated and kever.delpre not in self.hby.kevers:
+            return JSONResponse({"message": "AID delegate not found"}, status_code=404)
 
-        if not oobi_url:
-            return JSONResponse(
-                {"message": "OOBI not found for contact"}, status_code=404
+        msgs = self.hab.replyToOobi(aid=aid, role=kering.Roles.witness)
+
+        if msgs:
+            return Response(
+                content=bytes(msgs), media_type="application/cesr", status_code=200
             )
 
-        return JSONResponse({"url": oobi_url}, status_code=200)
+        else:
+            return JSONResponse({"message": "Contact not found"}, status_code=404)
 
     async def run(self):
         """
