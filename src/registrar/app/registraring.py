@@ -16,6 +16,7 @@ from sentinel.framework.basing import AppBaser
 from sentinel.framework.watching import FileWatchingService
 
 from registrar.core.apiing import RegistrarAPIService
+from ..core.oobiing import Oobiery
 
 # Handler imports
 from ..core.sentinel.handler import RegistrarEventHandler
@@ -91,5 +92,8 @@ async def setup_local(name, alias, base, bran, issuer, schema, export_dir):
         db=sentinel_db,
     )
     services.append(service)
+
+    oobiery = Oobiery(hby=hby)
+    services.append(oobiery)
 
     return services

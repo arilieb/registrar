@@ -113,7 +113,7 @@ class TestRegistrarAPIService:
             mock_exchanger.assert_called_once_with(hby=mock_hby, handlers=[])
 
             # Verify handler added to exchanger
-            mock_exchanger_instance.addHandler.assert_called_once()
+            assert mock_exchanger_instance.addHandler.call_count == 2
 
     def test_init_custom_params(self, mock_hby, mock_hab, mock_org, mock_rgy):
         """Test RegistrarAPIService initialization with custom parameters"""

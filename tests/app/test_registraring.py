@@ -46,6 +46,7 @@ class TestSetupLocal:
         }
 
     @pytest.mark.asyncio
+    @patch("registrar.app.registraring.Oobiery")
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
@@ -64,6 +65,7 @@ class TestSetupLocal:
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
+        mock_oobiery_class,
         setup_params,
         mock_habery,
         mock_regery,
@@ -92,6 +94,8 @@ class TestSetupLocal:
         mock_event_handler.return_value = mock_handler_instance
         mock_sentinel_db_instance = Mock()
         mock_app_baser.return_value = mock_sentinel_db_instance
+        mock_oobiery_instance = Mock()
+        mock_oobiery_class.return_value = mock_oobiery_instance
 
         # Execute
         services = await setup_local(**setup_params)
@@ -150,11 +154,13 @@ class TestSetupLocal:
         )
 
         # Verify services list
-        assert len(services) == 2
+        assert len(services) == 3
         assert mock_api_instance in services
         assert mock_file_watching_instance in services
+        assert mock_oobiery_instance in services
 
     @pytest.mark.asyncio
+    @patch("registrar.app.registraring.Oobiery")
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
@@ -173,6 +179,7 @@ class TestSetupLocal:
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
+        mock_oobiery_class,
         setup_params,
         mock_habery,
         mock_regery,
@@ -209,7 +216,7 @@ class TestSetupLocal:
         )
 
         # Verify services are still created
-        assert len(services) == 2
+        assert len(services) == 3
 
     @pytest.mark.asyncio
     @patch("registrar.app.registraring.habbing.Habery")
@@ -420,6 +427,7 @@ class TestSetupLocal:
         assert app_baser_call.kwargs["headDirPath"] == export_dir
 
     @pytest.mark.asyncio
+    @patch("registrar.app.registraring.Oobiery")
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
@@ -438,6 +446,7 @@ class TestSetupLocal:
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
+        mock_oobiery_class,
         setup_params,
         mock_habery,
         mock_regery,
@@ -458,10 +467,11 @@ class TestSetupLocal:
         # Execute
         services = await setup_local(**setup_params)
 
-        # Verify only API service and FileWatchingService are in the list
-        assert len(services) == 2
+        # Verify API service, FileWatchingService, and Oobiery are in the list
+        assert len(services) == 3
 
     @pytest.mark.asyncio
+    @patch("registrar.app.registraring.Oobiery")
     @patch("registrar.app.registraring.habbing.Habery")
     @patch("registrar.app.registraring.credentialing.Regery")
     @patch("registrar.app.registraring.RegistrarAPIService")
@@ -480,6 +490,7 @@ class TestSetupLocal:
         mock_api_service,
         mock_regery_class,
         mock_habery_class,
+        mock_oobiery_class,
         setup_params,
         mock_habery,
         mock_regery,
@@ -501,13 +512,16 @@ class TestSetupLocal:
         mock_api_service.return_value = mock_api_instance
         mock_file_watching_instance = Mock()
         mock_file_watching_service.return_value = mock_file_watching_instance
+        mock_oobiery_instance = Mock()
+        mock_oobiery_class.return_value = mock_oobiery_instance
 
         # Execute
         services = await setup_local(**setup_params)
 
-        # Verify order: API service, then FileWatchingService
+        # Verify order: API service, then FileWatchingService, then Oobiery
         assert services[0] == mock_api_instance
         assert services[1] == mock_file_watching_instance
+        assert services[2] == mock_oobiery_instance
 
     @pytest.mark.asyncio
     @patch("registrar.app.registraring.habbing.Habery")

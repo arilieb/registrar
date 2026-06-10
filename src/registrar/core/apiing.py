@@ -13,7 +13,9 @@ from keri import help, kering
 from keri.app import signing, connecting
 from keri.app.habbing import Habery, Hab
 from keri.core import serdering, parsing, coring
+from keri.db import basing
 from keri.db.dbing import dgKey
+from keri.help import helping
 from keri.peer import exchanging
 from keri.vdr import verifying
 from keri.vdr.credentialing import Regery
@@ -76,6 +78,7 @@ class RegistrarAPIService:
         self.exc.addHandler(
             IPEXGrantHandler(hby=self.hby, psr=self.credential_psr, issuer=issuer)
         )
+        self.exc.addHandler(IntroductionHandler(hby=self.hby))
 
         self.host = host
         self.port = port
@@ -400,3 +403,42 @@ class IPEXGrantHandler:
             sadder = coring.Sadder(ked=ked)
             ims = bytearray(sadder.raw) + pathed[label]
             self.psr.parseOne(ims=ims)
+
+
+class IntroductionHandler:
+    resource = "/introduction"
+
+    def __init__(self, hby):
+        """
+        Initialize the IPEXGrantHandler with the given parameters.
+
+        Parameters:
+            hby (Habery): Habitat instance for signing responses
+
+        """
+        self.hby = hby
+
+    def handle(self, serder, attachments=None):
+        """Do route specific processsing of IPEX protocol exn messages
+
+        Parameters:
+            serder (Serder): Serder of the IPEX protocol exn message
+            attachments (list): list of tuples of pather, CESR SAD path attachments to the exn event
+
+        """
+        payload = serder.seals
+        aid = payload.get("aid", None)
+        if not aid:
+            logger.info("aid parameter required in introduction exn")
+            return
+
+        logger.info(f"handling Introduction exn to {aid}")
+
+        oobi = payload.get("oobi", None)
+        if not oobi:
+            logger.info("oobi parameter required in introduction exn")
+            return
+
+        alias = payload.get("alias", None)
+        obr = basing.OobiRecord(cid=aid, oobialias=alias, date=helping.nowIso8601())
+        self.hby.db.oobis.put(keys=(oobi,), val=obr)
