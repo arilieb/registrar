@@ -200,15 +200,15 @@ class TestRegistrarAPIService:
         mock_request = Mock(spec=Request)
         mock_request.path_params = {"regi": "test-regi-123"}
 
-        # Mock output_tel to return data
+        # Mock output_registry to return data
         test_tel_data = b"registry tel data"
-        api_service.output_tel = Mock(return_value=test_tel_data)
+        api_service.output_registry = Mock(return_value=test_tel_data)
 
         # Execute
         response = await api_service.get_registry(mock_request)
 
         # Verify
-        api_service.output_tel.assert_called_once_with("test-regi-123")
+        api_service.output_registry.assert_called_once_with("test-regi-123")
         assert isinstance(response, Response)
         assert response.status_code == 200
         assert response.body == test_tel_data
@@ -231,13 +231,13 @@ class TestRegistrarAPIService:
 
     @pytest.mark.asyncio
     async def test_get_registry_empty_tel(self, api_service):
-        """Test get_registry endpoint when output_tel returns empty data"""
+        """Test get_registry endpoint when output_registry returns empty data"""
         # Mock request
         mock_request = Mock(spec=Request)
         mock_request.path_params = {"regi": "test-regi-123"}
 
-        # Mock output_tel to return empty data
-        api_service.output_tel = Mock(return_value=b"")
+        # Mock output_registry to return empty data
+        api_service.output_registry = Mock(return_value=b"")
 
         # Execute
         response = await api_service.get_registry(mock_request)
@@ -254,8 +254,8 @@ class TestRegistrarAPIService:
         mock_request = Mock(spec=Request)
         mock_request.path_params = {"regi": "test-regi-123"}
 
-        # Mock output_tel to raise MissingEntryError
-        api_service.output_tel = Mock(side_effect=kering.MissingEntryError)
+        # Mock output_registry to raise MissingEntryError
+        api_service.output_registry = Mock(side_effect=kering.MissingEntryError)
 
         # Execute
         response = await api_service.get_registry(mock_request)
@@ -543,6 +543,11 @@ class TestRegistrarAPIService:
 
     def test_output_tel(self, api_service):
         """Test output_tel method"""
+        # Mock reger.getTelItemPreIter to return matching said
+        api_service.rgy.reger.getTelItemPreIter = Mock(
+            return_value=[("test-pre", None, b"test-regk")]
+        )
+
         # Mock reger.clonePreIter to return test messages
         mock_msg1 = b"msg1" + b"atc1"
         mock_msg2 = b"msg2" + b"atc2"
@@ -565,17 +570,20 @@ class TestRegistrarAPIService:
             result = api_service.output_tel("test-regk")
 
             # Verify
-            api_service.rgy.reger.clonePreIter.assert_called_once_with(pre="test-regk")
+            api_service.rgy.reger.getTelItemPreIter.assert_called_once_with(b"", fn=0)
+            api_service.rgy.reger.clonePreIter.assert_called_once_with(pre="test-pre")
             assert result == b"msg1atc1msg2atc2"
 
     def test_output_tel_empty(self, api_service):
         """Test output_tel method with no messages"""
-        api_service.rgy.reger.clonePreIter = Mock(return_value=[])
+        # Mock getTelItemPreIter to return empty list (no matching said)
+        api_service.rgy.reger.getTelItemPreIter = Mock(return_value=[])
 
         # Execute
         result = api_service.output_tel("test-regk")
 
         # Verify
+        api_service.rgy.reger.getTelItemPreIter.assert_called_once_with(b"", fn=0)
         assert result == b""
 
     def test_output_cred_minimal(self, api_service):

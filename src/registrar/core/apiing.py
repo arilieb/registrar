@@ -13,6 +13,7 @@ from keri import help, kering
 from keri.app import signing, connecting
 from keri.app.habbing import Habery, Hab
 from keri.core import serdering, parsing, coring
+from keri.db.dbing import dgKey
 from keri.peer import exchanging
 from keri.vdr import verifying
 from keri.vdr.credentialing import Regery
@@ -126,7 +127,7 @@ class RegistrarAPIService:
             )
 
         try:
-            registry_tel = self.output_tel(regi)
+            registry_tel = self.output_registry(regi)
             if not registry_tel:
                 return JSONResponse(
                     {"message": "Registry transaction event log not found"},
@@ -155,16 +156,14 @@ class RegistrarAPIService:
                 status_code=404,
             )
 
-        registry_tel = self.output_tel(said)
-        if not registry_tel:
+        tel = self.output_tel(said)
+        if not tel:
             return JSONResponse(
                 {"message": "Credential transaction event log not found"},
                 status_code=404,
             )
 
-        return Response(
-            content=registry_tel, media_type="application/cesr", status_code=200
-        )
+        return Response(content=tel, media_type="application/cesr", status_code=200)
 
     async def get_credential(self, request):
         """
@@ -296,7 +295,7 @@ class RegistrarAPIService:
         if self._task and not self._task.done():
             self._task.cancel()
 
-    def output_tel(self, regk):
+    def stream_tel(self, regk):
         out = bytearray()
         for msg in self.rgy.reger.clonePreIter(pre=regk):
             serder = serdering.SerderKERI(raw=msg)
@@ -305,6 +304,26 @@ class RegistrarAPIService:
             out.extend(atc)
 
         return bytes(out)
+
+    def output_registry(self, regk):
+        regb = regk.encode("utf-8")
+        for pre, _, dig in self.rgy.reger.getTelItemPreIter(b"", fn=0):
+            if bytes(dig) == regb:
+                key = dgKey(pre, dig)
+                raw = self.rgy.reger.getTvt(key)
+                serder = serdering.SerderKERI(raw=bytes(raw))
+                if serder.ilk == "vcp":
+                    return self.stream_tel(regk)
+
+        return b""
+
+    def output_tel(self, said):
+        saidb = said.encode("utf-8")
+        for pre, _, dig in self.rgy.reger.getTelItemPreIter(b"", fn=0):
+            if bytes(dig) == saidb:
+                return self.stream_tel(pre)
+
+        return b""
 
     def output_cred(self, said, tel, registry, chains):
         creder, *_ = self.rgy.reger.cloneCred(said=said)
