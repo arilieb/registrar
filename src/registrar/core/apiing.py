@@ -336,7 +336,7 @@ class RegistrarAPIService:
             out.extend(self.output_tel(creder.regi))
 
         if tel:
-            out.extend(self.output_tel(creder.said))
+            out.extend(self.stream_tel(creder.said))
 
         if chains:
             chains = creder.edge if creder.edge is not None else {}

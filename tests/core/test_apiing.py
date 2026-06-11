@@ -656,8 +656,8 @@ class TestRegistrarAPIService:
         api_service.rgy.reger.cancs = Mock()
         api_service.rgy.reger.cancs.get = Mock(return_value=(Mock(), Mock(), Mock()))
 
-        # Mock output_tel
-        api_service.output_tel = Mock(return_value=b"cred-tel")
+        # Mock stream_tel
+        api_service.stream_tel = Mock(return_value=b"cred-tel")
 
         with patch("registrar.core.apiing.signing.serialize") as mock_serialize:
             mock_serialize.return_value = b"serialized-cred"
@@ -666,7 +666,7 @@ class TestRegistrarAPIService:
             result = api_service.output_cred("test-said", True, False, False)
 
             # Verify
-            api_service.output_tel.assert_called_once_with("cred-said")
+            api_service.stream_tel.assert_called_once_with("cred-said")
             assert result == b"cred-telserialized-cred"
 
     def test_output_cred_with_chains(self, api_service):
@@ -732,12 +732,18 @@ class TestRegistrarAPIService:
 
         # Track calls
         output_tel_calls = []
+        stream_tel_calls = []
 
         def mock_output_tel(regk):
             output_tel_calls.append(regk)
             return f"tel-{regk}".encode()
 
+        def mock_stream_tel(regk):
+            stream_tel_calls.append(regk)
+            return f"tel-{regk}".encode()
+
         api_service.output_tel = mock_output_tel
+        api_service.stream_tel = mock_stream_tel
 
         call_count = [0]
 
@@ -748,7 +754,7 @@ class TestRegistrarAPIService:
                 if registry and mock_creder.regi:
                     out.extend(mock_output_tel(mock_creder.regi))
                 if tel:
-                    out.extend(mock_output_tel(mock_creder.said))
+                    out.extend(mock_stream_tel(mock_creder.said))
                 if chains:
                     out.extend(b"chain-data")
                 out.extend(b"serialized-cred")
