@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import logging
 import signal
+import inspect
 
 from keri import __version__
 from keri import help
@@ -178,7 +179,10 @@ async def async_run_sentinel(args):
             logger.info("Stopping all services...")
             for service in services:
                 if hasattr(service, "stop"):
-                    service.stop()
+                    if inspect.iscoroutinefunction(service.stop):
+                        await service.stop()
+                    else:
+                        service.stop()
                     logger.info(f"Stopped service: {service.__class__.__name__}")
 
             # Wait for all tasks to complete with a timeout

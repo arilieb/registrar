@@ -149,6 +149,7 @@ class TestRegistrarAPIService:
         assert "/registry/{regi}" in route_paths
         assert "/tel/{said}" in route_paths
         assert "/credential/{said}" in route_paths
+        assert "/credentials/search" in route_paths
         assert "/oobi/{aid}" in route_paths
 
         # Verify specific methods (note: Starlette adds HEAD to GET routes automatically)
@@ -159,6 +160,7 @@ class TestRegistrarAPIService:
                 "/registry/{regi}",
                 "/tel/{said}",
                 "/credential/{said}",
+                "/credentials/search",
                 "/oobi/{aid}",
             ]:
                 assert "GET" in route.methods
@@ -540,6 +542,276 @@ class TestRegistrarAPIService:
         assert response.status_code == 404
         assert isinstance(response, JSONResponse)
         assert b"Contact not found" in response.body
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_single_filter_issuer(self, api_service):
+        """Test search_credentials with single issuer filter"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {"issuer": "EISSUER123"}
+
+        # Mock saiders returned from issus index
+        mock_saider1 = Mock()
+        mock_saider1.qb64 = "ESAID1"
+        mock_saider2 = Mock()
+        mock_saider2.qb64 = "ESAID2"
+
+        api_service.rgy.reger.issus = Mock()
+        api_service.rgy.reger.issus.get = Mock(
+            return_value=[mock_saider1, mock_saider2]
+        )
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 200
+        assert isinstance(response, JSONResponse)
+
+        import json
+
+        body = json.loads(response.body.decode())
+        assert body["count"] == 2
+        assert set(body["credentials"]) == {"ESAID1", "ESAID2"}
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_single_filter_recipient(self, api_service):
+        """Test search_credentials with single recipient filter"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {"recipient": "ERECIPIENT456"}
+
+        # Mock saiders returned from subjs index
+        mock_saider1 = Mock()
+        mock_saider1.qb64 = "ESAID3"
+        mock_saider2 = Mock()
+        mock_saider2.qb64 = "ESAID4"
+
+        api_service.rgy.reger.subjs = Mock()
+        api_service.rgy.reger.subjs.get = Mock(
+            return_value=[mock_saider1, mock_saider2]
+        )
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 200
+
+        import json
+
+        body = json.loads(response.body.decode())
+        assert body["count"] == 2
+        assert set(body["credentials"]) == {"ESAID3", "ESAID4"}
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_single_filter_schema(self, api_service):
+        """Test search_credentials with single schema filter"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {"schema": "ESCHEMA789"}
+
+        # Mock saiders returned from schms index
+        mock_saider1 = Mock()
+        mock_saider1.qb64 = "ESAID5"
+
+        api_service.rgy.reger.schms = Mock()
+        api_service.rgy.reger.schms.get = Mock(return_value=[mock_saider1])
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 200
+
+        import json
+
+        body = json.loads(response.body.decode())
+        assert body["count"] == 1
+        assert body["credentials"] == ["ESAID5"]
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_multiple_filters_and_logic(self, api_service):
+        """Test search_credentials with multiple filters (AND logic)"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {
+            "issuer": "EISSUER123",
+            "recipient": "ERECIPIENT456",
+            "schema": "ESCHEMA789",
+        }
+
+        # Mock saiders - only ESAID2 matches all filters
+        mock_issuer_saider1 = Mock()
+        mock_issuer_saider1.qb64 = "ESAID1"
+        mock_issuer_saider2 = Mock()
+        mock_issuer_saider2.qb64 = "ESAID2"
+
+        mock_recipient_saider1 = Mock()
+        mock_recipient_saider1.qb64 = "ESAID2"
+        mock_recipient_saider2 = Mock()
+        mock_recipient_saider2.qb64 = "ESAID3"
+
+        mock_schema_saider1 = Mock()
+        mock_schema_saider1.qb64 = "ESAID2"
+        mock_schema_saider2 = Mock()
+        mock_schema_saider2.qb64 = "ESAID4"
+
+        api_service.rgy.reger.issus = Mock()
+        api_service.rgy.reger.issus.get = Mock(
+            return_value=[mock_issuer_saider1, mock_issuer_saider2]
+        )
+
+        api_service.rgy.reger.subjs = Mock()
+        api_service.rgy.reger.subjs.get = Mock(
+            return_value=[mock_recipient_saider1, mock_recipient_saider2]
+        )
+
+        api_service.rgy.reger.schms = Mock()
+        api_service.rgy.reger.schms.get = Mock(
+            return_value=[mock_schema_saider1, mock_schema_saider2]
+        )
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 200
+
+        import json
+
+        body = json.loads(response.body.decode())
+        assert body["count"] == 1
+        assert body["credentials"] == ["ESAID2"]
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_no_filters(self, api_service):
+        """Test search_credentials with no filters returns 400 error"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {}
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 400
+        assert isinstance(response, JSONResponse)
+        assert b"At least one search filter required" in response.body
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_no_matches_issuer(self, api_service):
+        """Test search_credentials when issuer index returns empty"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {"issuer": "ENONEXISTENT"}
+
+        api_service.rgy.reger.issus = Mock()
+        api_service.rgy.reger.issus.get = Mock(return_value=None)
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 200
+
+        import json
+
+        body = json.loads(response.body.decode())
+        assert body["count"] == 0
+        assert body["credentials"] == []
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_no_matches_recipient(self, api_service):
+        """Test search_credentials when recipient index returns empty"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {"recipient": "ENONEXISTENT"}
+
+        api_service.rgy.reger.subjs = Mock()
+        api_service.rgy.reger.subjs.get = Mock(return_value=None)
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 200
+
+        import json
+
+        body = json.loads(response.body.decode())
+        assert body["count"] == 0
+        assert body["credentials"] == []
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_no_matches_schema(self, api_service):
+        """Test search_credentials when schema index returns empty"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {"schema": "ENONEXISTENT"}
+
+        api_service.rgy.reger.schms = Mock()
+        api_service.rgy.reger.schms.get = Mock(return_value=None)
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 200
+
+        import json
+
+        body = json.loads(response.body.decode())
+        assert body["count"] == 0
+        assert body["credentials"] == []
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_empty_intersection(self, api_service):
+        """Test search_credentials when filters have no common results"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {"issuer": "EISSUER123", "schema": "ESCHEMA789"}
+
+        # Mock saiders with no overlap
+        mock_issuer_saider = Mock()
+        mock_issuer_saider.qb64 = "ESAID1"
+
+        mock_schema_saider = Mock()
+        mock_schema_saider.qb64 = "ESAID2"
+
+        api_service.rgy.reger.issus = Mock()
+        api_service.rgy.reger.issus.get = Mock(return_value=[mock_issuer_saider])
+
+        api_service.rgy.reger.schms = Mock()
+        api_service.rgy.reger.schms.get = Mock(return_value=[mock_schema_saider])
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 200
+
+        import json
+
+        body = json.loads(response.body.decode())
+        assert body["count"] == 0
+        assert body["credentials"] == []
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_error_handling(self, api_service):
+        """Test search_credentials error handling for exceptions"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {"issuer": "EISSUER123"}
+
+        # Mock index to raise exception
+        api_service.rgy.reger.issus = Mock()
+        api_service.rgy.reger.issus.get = Mock(side_effect=Exception("Database error"))
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 500
+        assert isinstance(response, JSONResponse)
+        assert b"Error searching credentials" in response.body
+
+    @pytest.mark.asyncio
+    async def test_search_credentials_response_format(self, api_service):
+        """Test search_credentials response format contains credentials and count"""
+        mock_request = Mock(spec=Request)
+        mock_request.query_params = {"issuer": "EISSUER123"}
+
+        mock_saider = Mock()
+        mock_saider.qb64 = "ESAID1"
+
+        api_service.rgy.reger.issus = Mock()
+        api_service.rgy.reger.issus.get = Mock(return_value=[mock_saider])
+
+        response = await api_service.search_credentials(mock_request)
+
+        assert response.status_code == 200
+
+        import json
+
+        body = json.loads(response.body.decode())
+
+        # Verify response structure
+        assert "credentials" in body
+        assert "count" in body
+        assert isinstance(body["credentials"], list)
+        assert isinstance(body["count"], int)
+        assert body["count"] == len(body["credentials"])
 
     def test_output_tel(self, api_service):
         """Test output_tel method"""

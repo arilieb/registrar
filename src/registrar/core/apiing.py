@@ -31,11 +31,13 @@ class RegistrarAPIService:
     """
     Asyncio-based API service using Starlette and Hypercorn.
 
-    Provides GET endpoints:
-    - /registry: Returns registry data
-    - /tel: Returns transaction event log data
-    - /credential: Returns credential data
-    - /oobi/{aid}: Returns OOBI URL for a contact
+    Provides endpoints:
+    - PUT /: Parse and process KERI messages
+    - GET /registry/{regi}: Returns registry data
+    - GET /tel/{said}: Returns transaction event log data
+    - GET /credential/{said}: Returns credential data
+    - GET /credentials/search: Search credentials by issuer, recipient, or schema
+    - GET /oobi/{aid}: Returns OOBI URL for a contact
     """
 
     def __init__(
@@ -94,6 +96,7 @@ class RegistrarAPIService:
                 Route("/registry/{regi}", self.get_registry, methods=["GET"]),
                 Route("/tel/{said}", self.get_tel, methods=["GET"]),
                 Route("/credential/{said}", self.get_credential, methods=["GET"]),
+                Route("/credentials/search", self.search_credentials, methods=["GET"]),
                 Route("/oobi/{aid}", self.get_oobi, methods=["GET"]),
             ],
         )
@@ -239,6 +242,109 @@ class RegistrarAPIService:
 
         else:
             return JSONResponse({"message": "Contact not found"}, status_code=404)
+
+    async def search_credentials(self, request: Request):
+        """
+        Handle GET /credentials/search endpoint.
+
+        Search for credentials matching specified filters using reger index databases.
+        All filters use AND logic (all specified filters must match).
+
+        Query Parameters:
+            issuer: Filter by issuer AID
+            recipient: Filter by recipient/issuee AID
+            schema: Filter by schema SAID
+
+        Returns:
+            JSONResponse with {"credentials": [...], "count": N} on success
+            JSONResponse with error message on failure (400, 500)
+        """
+        # Extract query parameters
+        issuer = request.query_params.get("issuer")
+        issuer_sn = request.query_params.get("issuer_sn")
+        recipient = request.query_params.get("recipient")
+        schema = request.query_params.get("schema")
+
+        if issuer_sn is not None:
+            try:
+                issuer_sn = int(issuer_sn)
+            except ValueError:
+                issuer_sn = None
+
+        # Require at least one filter
+        if not any([issuer, recipient, schema]):
+            return JSONResponse(
+                {
+                    "message": "At least one search filter required (issuer, recipient, schema)"
+                },
+                status_code=400,
+            )
+
+        if issuer and issuer_sn:
+            try:
+                kever = self.hby.kevers[issuer]
+            except KeyError:
+                return JSONResponse({"message": "Issuer not found"}, status_code=400)
+
+            if issuer_sn > kever.sn:
+                return JSONResponse(
+                    {"message": "Local issuer keystate not up to date"},
+                    status_code=412,  # PRECONDITION FAILED
+                )
+
+        try:
+            # Collect SAID sets from each index
+            said_sets = []
+
+            # Query issuer index (issus)
+            if issuer:
+                saiders = self.rgy.reger.issus.get(keys=(issuer,))
+                if saiders:
+                    said_sets.append(set(saider.qb64 for saider in saiders))
+                else:
+                    # No credentials for this issuer
+                    return JSONResponse(
+                        {"credentials": [], "count": 0}, status_code=200
+                    )
+
+            # Query recipient/subject index (subjs)
+            if recipient:
+                saiders = self.rgy.reger.subjs.get(keys=(recipient,))
+                if saiders:
+                    said_sets.append(set(saider.qb64 for saider in saiders))
+                else:
+                    # No credentials for this recipient
+                    return JSONResponse(
+                        {"credentials": [], "count": 0}, status_code=200
+                    )
+
+            # Query schema index (schms)
+            if schema:
+                saiders = self.rgy.reger.schms.get(keys=(schema,))
+                if saiders:
+                    said_sets.append(set(saider.qb64 for saider in saiders))
+                else:
+                    # No credentials for this schema
+                    return JSONResponse(
+                        {"credentials": [], "count": 0}, status_code=200
+                    )
+
+            # Find intersection of all SAID sets (AND logic)
+            if said_sets:
+                matching_saids = list(set.intersection(*said_sets))
+            else:
+                matching_saids = []
+
+            return JSONResponse(
+                {"credentials": matching_saids, "count": len(matching_saids)},
+                status_code=200,
+            )
+
+        except Exception as e:
+            logger.error(f"Error searching credentials: {e}")
+            return JSONResponse(
+                {"message": f"Error searching credentials: {str(e)}"}, status_code=500
+            )
 
     async def run(self):
         """
